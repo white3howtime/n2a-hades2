@@ -40,7 +40,19 @@ __attribute__((constructor)) static void hades_title_setup(void) {
 #include <string.h>
 #include <sys/mman.h>
 #include <unistd.h>
+/* Optional script overrides: files under <app data>/d2r-mobile/hades-overlay/ (same layout as the RomFS) win over the RomFS ones.
+ * Made on the user's machine by dm/tools/hades2_lua_patch.py; nothing from the game is stored in this repository. */
+static void hades_overlay(void) {
+    const char *save = getenv("DM_SAVE"); char dir[1100];
+    if (!save || getenv("DM_ROMFS_OVERLAY")) return;
+    snprintf(dir, sizeof dir, "%s", save);
+    char *slash = strrchr(dir, '/'); if (!slash) return;
+    snprintf(slash, sizeof dir - (size_t)(slash - dir), "/hades-overlay");
+    if (access(dir, F_OK) == 0) { setenv("DM_ROMFS_OVERLAY", dir, 1); LOG("HADES overlay: %s", dir); }
+}
+
 void hades_apply_screen(void) {
+    hades_overlay();
     const char *e = getenv("HADES_SCREEN"); int w = 0, h = 0;
     if (!e || sscanf(e, "%d %d", &w, &h) != 2 || w <= 0 || h <= 0) return;
     module_t *m = &g_mod[0];
