@@ -55,6 +55,11 @@ void hades_apply_screen(void) {
     ins[0] = 0xD2800008u + ((uint32_t)nw << 5);
     __builtin___clear_cache((char *)ins, (char *)(ins + 2));
     mprotect((void *)a, pg, PROT_READ | PROT_EXEC);
+    /* The engine's own "screen size" (config X/Y source) must agree with the window size, or passes that use it stop at 1280. */
+    static const int32_t want[4] = {1280, 720, 1920, 1080};
+    int32_t *tab = (int32_t *)(m->base + 0x6d337c), *pair = (int32_t *)(m->base + 0x71a8b0);
+    if (!memcmp(tab, want, sizeof want) && !mprotect((void *)((uintptr_t)tab & ~(uintptr_t)(pg - 1)), pg * 2, PROT_READ | PROT_WRITE)) tab[0] = nw;
+    if (pair[0] == 1280 && pair[1] == 720) pair[0] = nw;
     LOG("HADES_SCREEN: render size %dx720 (screen %dx%d)", nw, w, h);
 }
 

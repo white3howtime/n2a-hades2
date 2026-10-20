@@ -33,7 +33,7 @@ Gameplay runs at about 60 FPS in the scenes tested (~640 draws per frame).
 
 ### Not done / not verified
 
-- Wide-screen mode: world and menus verified at 2.17:1; every HUD/dialog/boss scene at that ratio is not (UI layout is engine-driven). Ratios wider than ~3.5:1 are clamped.
+- Wide-screen mode: world, menus, the first combat room and its HUD verified at 2.17:1; other HUD/dialog/boss scenes are not (UI layout is engine-driven). Ratios wider than ~3.5:1 are clamped.
 - Long play sessions (memory growth, stability over hours) and later biomes/bosses have not been tested; other NVN functions the game may call are still unimplemented and abort with `Android NVN unsupported function`.
 - In-game button prompts still show Switch glyphs (e.g. "R"), which map to the on-screen buttons described above.
 - Audio is wired (FMOD software Opus path, 48 kHz stereo) but has not been checked by ear.
