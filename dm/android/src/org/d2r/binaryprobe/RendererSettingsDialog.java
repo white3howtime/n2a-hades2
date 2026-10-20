@@ -37,6 +37,10 @@ final class RendererSettingsDialog {
         this.activity=activity;this.applied=applied;store=new RendererOptionsStore(activity);
         this.appliedScale=appliedScale;this.scaleRequest=scaleRequest;qualityStore=new RenderQualityStore(activity);
         LinearLayout body=new LinearLayout(activity);body.setOrientation(LinearLayout.VERTICAL);body.setPadding(dp(18),dp(8),dp(18),dp(12));
+        text(body,"屏幕",18);
+        Switch fillScreen=option(body,"铺满全屏","游戏画面固定为 16:9；开启后拉伸铺满整个屏幕（宽屏手机上画面会略微变宽），关闭则保持比例并留黑边。");
+        fillScreen.setChecked(ScreenMode.fill(activity));
+        fillScreen.setOnCheckedChangeListener((v,on)->{ScreenMode.setFill(activity,on);View vp=activity.findViewById(android.R.id.content);if(vp!=null)relayout(vp);});
         text(body,"画质模式",18);
         RadioGroup quality=new RadioGroup(activity);quality.setOrientation(LinearLayout.VERTICAL);body.addView(quality);
         automatic=qualityOption(quality,RenderQuality.description(RenderQuality.AUTO));
@@ -69,6 +73,7 @@ final class RendererSettingsDialog {
         panel.dialog.getWindow().setLayout(Math.min(panel.dp(600),activity.getResources().getDisplayMetrics().widthPixels-panel.dp(36)),WindowManager.LayoutParams.WRAP_CONTENT);
         panel.dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(TouchControlsView.TEXT);panel.automatic.requestFocus();return panel;
     }
+    private static void relayout(View v){v.requestLayout();if(v instanceof android.view.ViewGroup){android.view.ViewGroup g=(android.view.ViewGroup)v;for(int i=0;i<g.getChildCount();i++)relayout(g.getChildAt(i));}}
     private int dp(int n){return Math.round(n*activity.getResources().getDisplayMetrics().density);}
     private TextView text(LinearLayout body,String value,int size){
         TextView view=new TextView(activity);view.setText(value);view.setTextColor(TouchControlsView.TEXT);view.setTextSize(size);

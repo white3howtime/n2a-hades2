@@ -121,6 +121,8 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN|View.SYSTEM_UI_FLAG_HIDE_NAVIGATION|
             View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY|View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN|View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
+        // Let the picture extend under a display cutout (camera hole) so "fill screen" really fills it.
+        getWindow().getAttributes().layoutInDisplayCutoutMode=android.os.Build.VERSION.SDK_INT>=30?WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS:WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
         FrameLayout root=new FrameLayout(this);root.setBackgroundColor(0xff0d0d0f);
         GameViewport viewport=new GameViewport(this);
         root.addView(viewport,new FrameLayout.LayoutParams(-1,-1,Gravity.CENTER));
