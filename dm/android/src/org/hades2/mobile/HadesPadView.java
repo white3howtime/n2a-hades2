@@ -108,9 +108,9 @@ public final class HadesPadView extends View {
         for (int i = 0; i < n; i++) {
             int btn = (int) vis[1 + 5 * i]; float cx = vis[2 + 5 * i], cy = vis[3 + 5 * i], r = vis[4 + 5 * i];
             boolean pressed = vis[5 + 5 * i] != 0;
-            fill.setColor(pressed ? 0x99FFFFFF : 0x26000000); c.drawCircle(cx, cy, r, fill);
-            line.setStrokeWidth(1.5f * dp); line.setColor(pressed ? 0xCCFFFFFF : 0x66FFFFFF); c.drawCircle(cx, cy, r, line);
-            line.setColor(pressed ? 0xFF000000 : 0xE0FFFFFF);
+            disc(c, cx, cy, r, pressed, dp);
+            int ink = pressed ? 0xFF10141A : 0xF2FFFFFF;
+            line.setColor(ink); fill.setColor(ink); fill.setShader(null);
             icon(c, btn, cx, cy, r, menu);
         }
         if (vis[t] != 0) {
@@ -124,6 +124,15 @@ public final class HadesPadView extends View {
         }
     }
 
+    /** Soft dark glass disc with a thin light rim and a drop shadow; solid light when pressed. */
+    private void disc(Canvas c, float cx, float cy, float r, boolean pressed, float dp) {
+        fill.setShader(null); fill.setColor(0x33000000); c.drawCircle(cx, cy + dp * 1.5f, r + dp, fill);
+        if (pressed) fill.setColor(0xDDFFFFFF);
+        else fill.setShader(new android.graphics.LinearGradient(cx, cy - r, cx, cy + r, 0x9A3A4452, 0x9A12161C, android.graphics.Shader.TileMode.CLAMP));
+        c.drawCircle(cx, cy, r, fill); fill.setShader(null);
+        line.setStyle(Paint.Style.STROKE); line.setStrokeWidth(1.5f * dp); line.setColor(pressed ? 0xFFFFFFFF : 0x80FFFFFF); c.drawCircle(cx, cy, r, line);
+    }
+
     /** Vector icons instead of text: keeps the buttons small and language-free. Order matches hp_btn in hades_pad.h. */
     private void icon(Canvas c, int btn, float x, float y, float r, boolean menu) {
         float k = r * .5f, dp = getResources().getDisplayMetrics().density;
@@ -131,31 +140,39 @@ public final class HadesPadView extends View {
         line.setStyle(Paint.Style.STROKE);
         Path p = new Path();
         switch (btn) {
-            case 0: // attack: sword
-                c.drawLine(x - k, y + k, x + k, y - k, line);
-                c.drawLine(x - k * .15f, y - k * .15f - k * .45f, x + k * .45f + k * .15f, y + k * .15f, line);
-                c.drawLine(x - k * .95f, y + k * .95f, x - k * 1.15f, y + k * 1.15f, line); break;
-            case 1: // special: four-point star
-                p.moveTo(x, y - k * 1.2f); p.quadTo(x, y, x + k * 1.2f, y); p.quadTo(x, y, x, y + k * 1.2f);
-                p.quadTo(x, y, x - k * 1.2f, y); p.quadTo(x, y, x, y - k * 1.2f); c.drawPath(p, line); break;
-            case 2: // cast: ring with a dot
-                c.drawCircle(x, y, k, line); c.drawCircle(x, y, k * .25f, line); break;
+            case 0: // attack: sword, tip to the upper right
+                c.save(); c.rotate(45, x, y);
+                p.moveTo(x, y - k * 1.3f); p.lineTo(x + k * .2f, y - k * .95f); p.lineTo(x + k * .2f, y + k * .3f); p.lineTo(x - k * .2f, y + k * .3f); p.lineTo(x - k * .2f, y - k * .95f); p.close();
+                c.drawPath(p, fill);
+                c.drawRoundRect(x - k * .62f, y + k * .34f, x + k * .62f, y + k * .56f, k * .1f, k * .1f, fill);
+                c.drawRoundRect(x - k * .1f, y + k * .56f, x + k * .1f, y + k * 1.0f, k * .05f, k * .05f, fill);
+                c.drawCircle(x, y + k * 1.12f, k * .16f, fill); c.restore(); break;
+            case 1: // special: sparkle
+                p.moveTo(x, y - k * 1.3f); p.quadTo(x, y, x + k * 1.3f, y); p.quadTo(x, y, x, y + k * 1.3f);
+                p.quadTo(x, y, x - k * 1.3f, y); p.quadTo(x, y, x, y - k * 1.3f); c.drawPath(p, fill); break;
+            case 2: // cast: orb in a ring
+                c.drawCircle(x, y, k * .95f, line); c.drawCircle(x, y, k * .38f, fill); break;
             case 3: // dash: double chevron
-                for (int i = 0; i < 2; i++) { float o = (i - .5f) * k * 1.1f; p.moveTo(x + o - k * .45f, y - k * .7f); p.lineTo(x + o + k * .35f, y); p.lineTo(x + o - k * .45f, y + k * .7f); }
+                line.setStrokeWidth(Math.max(2.5f * dp, k * .36f));
+                for (int i = 0; i < 2; i++) { float o = (i - .5f) * k * 1.0f; p.moveTo(x + o - k * .4f, y - k * .75f); p.lineTo(x + o + k * .35f, y); p.lineTo(x + o - k * .4f, y + k * .75f); }
                 c.drawPath(p, line); break;
-            case 4: // interact: speech bubble with dots
-                c.drawRoundRect(x - k * 1.1f, y - k * .8f, x + k * 1.1f, y + k * .6f, k * .4f, k * .4f, line);
-                for (int i = -1; i <= 1; i++) c.drawPoint(x + i * k * .5f, y - k * .1f, line);
-                break;
+            case 4: { // interact: speech bubble with three dots cut out
+                p.setFillType(Path.FillType.EVEN_ODD);
+                p.addRoundRect(x - k * 1.15f, y - k * .85f, x + k * 1.15f, y + k * .55f, k * .4f, k * .4f, Path.Direction.CW);
+                p.moveTo(x - k * .5f, y + k * .5f); p.lineTo(x - k * .6f, y + k * 1.1f); p.lineTo(x + k * .1f, y + k * .5f); p.close();
+                for (int i = -1; i <= 1; i++) p.addCircle(x + i * k * .55f, y - k * .15f, k * .14f, Path.Direction.CCW);
+                c.drawPath(p, fill); break; }
             case 5: // call: horn
-                p.moveTo(x - k, y - k * .3f); p.lineTo(x - k * .3f, y - k * .3f); p.lineTo(x + k * .6f, y - k * .9f); p.lineTo(x + k * .6f, y + k * .9f);
-                p.lineTo(x - k * .3f, y + k * .3f); p.lineTo(x - k, y + k * .3f); p.close(); c.drawPath(p, line); break;
-            case 6: // lock: crosshair
-                c.drawCircle(x, y, k * .6f, line);
-                c.drawLine(x, y - k * 1.1f, x, y - k * .6f, line); c.drawLine(x, y + k * .6f, x, y + k * 1.1f, line);
-                c.drawLine(x - k * 1.1f, y, x - k * .6f, y, line); c.drawLine(x + k * .6f, y, x + k * 1.1f, y, line); break;
+                p.moveTo(x - k * 1.0f, y - k * .35f); p.lineTo(x - k * .25f, y - k * .35f); p.lineTo(x + k * .65f, y - k * 1.0f); p.lineTo(x + k * .65f, y + k * 1.0f);
+                p.lineTo(x - k * .25f, y + k * .35f); p.lineTo(x - k * 1.0f, y + k * .35f); p.close(); c.drawPath(p, fill);
+                c.drawArc(x + k * .2f, y - k * .6f, x + k * 1.25f, y + k * .6f, -50, 100, false, line); break;
+            case 6: // lock: target
+                c.drawCircle(x, y, k * .62f, line); c.drawCircle(x, y, k * .17f, fill);
+                c.drawLine(x, y - k * 1.15f, x, y - k * .62f, line); c.drawLine(x, y + k * .62f, x, y + k * 1.15f, line);
+                c.drawLine(x - k * 1.15f, y, x - k * .62f, y, line); c.drawLine(x + k * .62f, y, x + k * 1.15f, y, line); break;
             case 7: // pause: two bars
-                c.drawLine(x - k * .4f, y - k * .7f, x - k * .4f, y + k * .7f, line); c.drawLine(x + k * .4f, y - k * .7f, x + k * .4f, y + k * .7f, line); break;
+                c.drawRoundRect(x - k * .6f, y - k * .75f, x - k * .15f, y + k * .75f, k * .12f, k * .12f, fill);
+                c.drawRoundRect(x + k * .15f, y - k * .75f, x + k * .6f, y + k * .75f, k * .12f, k * .12f, fill); break;
             case 8: // info: i
                 c.drawPoint(x, y - k * .8f, line); c.drawLine(x, y - k * .2f, x, y + k * .8f, line); break;
             case 9: // menu: three lines (play triangle when already in the menu)

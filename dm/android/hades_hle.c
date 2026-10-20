@@ -40,19 +40,45 @@ __attribute__((constructor)) static void hades_title_setup(void) {
 #include <string.h>
 #include <sys/mman.h>
 #include <unistd.h>
+#include <stdio.h>
+#include <sys/stat.h>
 /* Optional script overrides: files under <app data>/d2r-mobile/hades-overlay/ (same layout as the RomFS) win over the RomFS ones.
  * Made on the user's machine by dm/tools/hades2_lua_patch.py; nothing from the game is stored in this repository. */
-static void hades_overlay(void) {
-    const char *save = getenv("DM_SAVE"); char dir[1100];
-    if (!save || getenv("DM_ROMFS_OVERLAY")) return;
+/* The engine's Lua lays the UI out from GetConfigOptionValue X/Y, which stays 1280x720. Shadow Scripts/RunLogic.lua (read from the
+ * user's own RomFS image at start-up, never stored in the repo) with those two calls replaced by the real render size. */
+#include "romfs_image.h"
+static char *hades_replace(char *s, size_t *len, const char *from, const char *to) {
+    char *at = strstr(s, from); if (!at) return NULL;
+    size_t lf = strlen(from), lt = strlen(to), tail = *len - (size_t)(at - s) - lf;
+    memmove(at + lt, at + lf, tail + 1); memcpy(at, to, lt); *len = *len - lf + lt; return s;
+}
+static void hades_overlay(int nw) {
+    const char *save = getenv("DM_SAVE"), *rom = getenv("DM_ROMFS"); char dir[1100], file[1200], src[1100];
+    if (!save || !rom || getenv("DM_ROMFS_OVERLAY")) return;
     snprintf(dir, sizeof dir, "%s", save);
     char *slash = strrchr(dir, '/'); if (!slash) return;
     snprintf(slash, sizeof dir - (size_t)(slash - dir), "/hades-overlay");
-    if (access(dir, F_OK) == 0) { setenv("DM_ROMFS_OVERLAY", dir, 1); LOG("HADES overlay: %s", dir); }
+    snprintf(file, sizeof file, "%s/Scripts/RunLogic.lua", dir);
+    if (nw <= 1280) { unlink(file); return; }   /* 16:9: the stock layout is right */
+    snprintf(src, sizeof src, "%s/Scripts/RunLogic.lua", rom);
+    int64_t size = 0; int fd = -1;
+    if (romfs_image_lookup(src, NULL, &size) != 1 || size <= 0 || size > (16 << 20) || romfs_image_open(src, 1, &fd) != 1) { LOG("HADES overlay: RunLogic.lua not readable"); return; }
+    char *buf = malloc((size_t)size + 64); ssize_t got = 0; size_t len = 0;
+    if (buf && romfs_image_pread(fd, buf, (size_t)size, 0, &got) == 1 && got == size) { len = (size_t)size; buf[len] = 0; } else { free(buf); buf = NULL; }
+    romfs_image_close_fd(fd);
+    char w[64]; snprintf(w, sizeof w, "local actualWidth = %d", nw);
+    if (!buf || !hades_replace(buf, &len, "local actualWidth = GetConfigOptionValue({ Name = \"X\" })", w) ||
+        !hades_replace(buf, &len, "local actualHeight = GetConfigOptionValue({ Name = \"Y\" })", "local actualHeight = 720")) {
+        LOG("HADES overlay: RunLogic.lua differs from the tested build, skipped"); free(buf); return;
+    }
+    char sub[1200]; snprintf(sub, sizeof sub, "%s/Scripts", dir); mkdir(dir, 0700); mkdir(sub, 0700);
+    FILE *f = fopen(file, "wb");
+    if (f && fwrite(buf, 1, len, f) == len && !fclose(f)) { setenv("DM_ROMFS_OVERLAY", dir, 1); LOG("HADES overlay: %s (width %d)", dir, nw); }
+    else LOG("HADES overlay: write failed");
+    free(buf);
 }
 
 void hades_apply_screen(void) {
-    hades_overlay();
     const char *e = getenv("HADES_SCREEN"); int w = 0, h = 0;
     if (!e || sscanf(e, "%d %d", &w, &h) != 2 || w <= 0 || h <= 0) return;
     module_t *m = &g_mod[0];
@@ -62,6 +88,7 @@ void hades_apply_screen(void) {
     int nw = (int)(720.0 * w / h + 0.5) & ~1;
     if (nw < 1280) nw = 1280;
     if (nw > 2560) nw = 2560;   /* shortcut: 2560 keeps the immediate and RT sizes sane; wider than ~3.5:1 is clamped */
+    hades_overlay(nw);
     long pg = sysconf(_SC_PAGESIZE); uintptr_t a = (uintptr_t)ins & ~(uintptr_t)(pg - 1);
     if (mprotect((void *)a, pg, PROT_READ | PROT_WRITE | PROT_EXEC)) { LOG("HADES_SCREEN: mprotect failed"); return; }
     ins[0] = 0xD2800008u + ((uint32_t)nw << 5);

@@ -6,5 +6,5 @@ cmake --build "$(winpath "$BUILD/native")" 2>&1 | grep -E "error|FAILED" | head 
 mkdir -p "$BUILD/apk"; rm -f "$BUILD/apk/hades2-debug.apk"
 python "$N2A_ROOT/dm/tools/hades2_apk.py" --sdk "$(winpath "$N2A_TOOLS/sdk")" --jdk "$(winpath "$N2A_TOOLS/jdk")" \
   --lib "$(winpath "$BUILD/native/libd2r_mobile_android.so")" --src "$(winpath "$N2A_ROOT/dm/android/src")" \
-  --out "$(winpath "$BUILD/apk/hades2-debug.apk")" --keystore "$(winpath "$BUILD/apk/debug.jks")" 2>&1 | tail -1
+  --out "$(winpath "$BUILD/apk/hades2-debug.apk")" --keystore "$(winpath "$BUILD/apk/debug.jks")" $([ -d "$N2A_ROOT/.local/icon-res" ] && echo --res "$(winpath "$N2A_ROOT/.local/icon-res")") 2>&1 | tail -1
 "$ADB" install -r "$(winpath "$BUILD/apk/hades2-debug.apk")" 2>&1 | tail -1

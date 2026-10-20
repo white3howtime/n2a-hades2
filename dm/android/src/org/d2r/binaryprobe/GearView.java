@@ -18,17 +18,21 @@ final class GearView extends View {
     }
 
     @Override protected void onDraw(Canvas c) {
-        float x = getWidth() / 2f, y = getHeight() / 2f, r = Math.min(x, y) - 1;
-        c.drawCircle(x, y, r, fill);
-        line.setColor(0x66FFFFFF); c.drawCircle(x, y, r, line);
-        line.setColor(0xE0FFFFFF); line.setStrokeWidth(Math.max(2f * getResources().getDisplayMetrics().density, r * .12f));
+        float dp = getResources().getDisplayMetrics().density;
+        float x = getWidth() / 2f, y = getHeight() / 2f, r = Math.min(x, y) - dp * 1.5f;
+        fill.setShader(null); fill.setColor(0x33000000); c.drawCircle(x, y + dp * 1.5f, r + dp, fill);
+        fill.setShader(new android.graphics.LinearGradient(x, y - r, x, y + r, 0x9A3A4452, 0x9A12161C, android.graphics.Shader.TileMode.CLAMP));
+        c.drawCircle(x, y, r, fill); fill.setShader(null);
+        line.setColor(0x80FFFFFF); line.setStrokeWidth(1.5f * dp); c.drawCircle(x, y, r, line);
         float k = r * .5f;
-        c.drawCircle(x, y, k * .8f, line);
+        fill.setColor(0xF2FFFFFF); line.setColor(0xF2FFFFFF); line.setStrokeWidth(k * .42f); line.setStrokeCap(Paint.Cap.BUTT);
         for (int i = 0; i < 8; i++) {   // teeth
             double a = i * Math.PI / 4;
             float cs = (float) Math.cos(a), sn = (float) Math.sin(a);
-            c.drawLine(x + cs * k * 1.05f, y + sn * k * 1.05f, x + cs * k * 1.4f, y + sn * k * 1.4f, line);
+            c.drawLine(x + cs * k * .9f, y + sn * k * .9f, x + cs * k * 1.45f, y + sn * k * 1.45f, line);
         }
-        c.drawCircle(x, y, k * .22f, line);
+        android.graphics.Path p = new android.graphics.Path(); p.setFillType(android.graphics.Path.FillType.EVEN_ODD);
+        p.addCircle(x, y, k * 1.05f, android.graphics.Path.Direction.CW); p.addCircle(x, y, k * .42f, android.graphics.Path.Direction.CCW);
+        c.drawPath(p, fill);
     }
 }

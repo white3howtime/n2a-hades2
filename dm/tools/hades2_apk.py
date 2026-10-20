@@ -30,6 +30,7 @@ def main():
     ap.add_argument("--build-tools", default="35.0.0")
     ap.add_argument("--platform", default="android-34")
     ap.add_argument("--keystore", type=Path)
+    ap.add_argument("--res", type=Path, help="optional Android res dir with mipmap/ic_launcher (launcher icon); see hades2_icon.py")
     ap.add_argument("--work", type=Path, help="scratch directory (default: next to --out)")
     a = ap.parse_args()
     exe = ".exe" if os.name == "nt" else ""
@@ -54,7 +55,13 @@ def main():
     run([a.jdk / "bin" / f"javac{exe}", "--release", "8", "-encoding", "UTF-8", "-Xlint:-options", "-cp", android_jar, "-d", classes, *sources], env)
     run([bt / f"d8{bat}", "--min-api", "29", "--lib", android_jar, "--output", dex, *sorted(classes.rglob("*.class"))], env)
     base = work / "base.apk"
-    run([bt / f"aapt2{exe}", "link", "-o", base, "--manifest", MANIFEST, "-I", android_jar, "--min-sdk-version", "29", "--target-sdk-version", "33"], env)
+    manifest, extra = MANIFEST, []
+    if a.res and a.res.is_dir():
+        run([bt / f"aapt2{exe}", "compile", "--dir", a.res, "-o", work / "res.zip"], env)
+        manifest = work / "AndroidManifest.xml"
+        manifest.write_text(Path(MANIFEST).read_text(encoding="utf-8").replace("<application ", '<application android:icon="@mipmap/ic_launcher" ', 1), encoding="utf-8")
+        extra = [work / "res.zip"]
+    run([bt / f"aapt2{exe}", "link", "-o", base, "--manifest", manifest, "-I", android_jar, "--min-sdk-version", "29", "--target-sdk-version", "33", *extra], env)
     unaligned = work / "unaligned.apk"
     with zipfile.ZipFile(base) as zin, zipfile.ZipFile(unaligned, "w") as zout:
         for item in zin.infolist():
