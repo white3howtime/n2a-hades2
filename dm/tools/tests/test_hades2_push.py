@@ -10,6 +10,7 @@ class FakeDevice:
     def __init__(self, root: Path, package="org.test.app", free_kib=10_000_000):
         self.root, self.package, self.free_kib = root, package, free_kib
         self.log, self.truncate_next, self.corrupt_next, self.fail_next_transfer = [], False, False, False
+        self.cut_chunks = 0      # the next N appended chunks arrive only half written, with adb reporting success (seen on a real phone)
 
     def path(self, rel):
         assert not rel.startswith("/") and ".." not in rel, rel
@@ -21,7 +22,8 @@ class FakeDevice:
         command = inner[2]
         self.log.append((kind, command))
         if kind == "exec-in":
-            target = command.split("cat > ", 1)[1]
+            append = "cat >> " in command
+            target = command.split("cat >> " if append else "cat > ", 1)[1]
             if self.fail_next_transfer:
                 self.fail_next_transfer = False
                 return 1, b"closed"
@@ -30,8 +32,11 @@ class FakeDevice:
                 data, self.truncate_next = data[:-1], False
             if self.corrupt_next:
                 data, self.corrupt_next = bytes([data[0] ^ 1]) + data[1:], False
+            if self.cut_chunks and append:
+                data, self.cut_chunks = data[:len(data) // 2], self.cut_chunks - 1
             self.path(target).parent.mkdir(parents=True, exist_ok=True)
-            self.path(target).write_bytes(data)
+            with open(self.path(target), "ab" if append else "wb") as f:
+                f.write(data)
             return 0, b""
         words = command.split()
         if command.startswith("df -k"):
@@ -45,6 +50,13 @@ class FakeDevice:
         if words[0] == "sha256sum":
             p = self.path(words[1])
             return (0, f"{hashlib.sha256(p.read_bytes()).hexdigest()}  {words[1]}".encode()) if p.is_file() else (1, b"No such file")
+        if words[0] == "truncate":
+            os.truncate(self.path(words[3]), int(words[2]))
+            return 0, b""
+        if words[0] == "rm":
+            p = self.path(words[2])
+            if p.exists(): p.unlink()
+            return 0, b""
         if words[0] == "mv":
             self.path(words[2]).parent.mkdir(parents=True, exist_ok=True)
             os.replace(self.path(words[1]), self.path(words[2]))
@@ -162,6 +174,47 @@ class PushTest(unittest.TestCase):
         (sent, _), _, items = self.push()
         self.assertEqual(sent, len(items))
         self.assertGreater(noisy["left"], 10)
+
+    def test_large_file_goes_in_chunks(self):
+        hp.CHUNK = 5000
+        try:
+            (sent, _), _, items = self.push()
+        finally:
+            hp.CHUNK = 32 << 20
+        self.assertEqual(self.dev.path("files/game.romfs").read_bytes(), self.inputs[1].read_bytes())
+        appends = [c for k, c in self.dev.log if k == "exec-in" and "cat >> files/game.romfs" in c]
+        self.assertEqual(len(appends), -(-self.inputs[1].stat().st_size // 5000) - 1)
+
+    def test_chunk_cut_short_is_retried(self):
+        hp.CHUNK = 5000
+        self.dev.cut_chunks = 3
+        try:
+            self.push()
+        finally:
+            hp.CHUNK = 32 << 20
+        self.assertEqual(self.dev.path("files/game.romfs").read_bytes(), self.inputs[1].read_bytes())
+
+    def test_partial_remote_file_is_resumed(self):
+        hp.CHUNK = 5000
+        data = self.inputs[1].read_bytes()
+        partial = self.dev.path("files/game.romfs.new"); partial.parent.mkdir(parents=True)
+        partial.write_bytes(data[:12345])                  # not on a chunk boundary
+        try:
+            self.push()
+        finally:
+            hp.CHUNK = 32 << 20
+        self.assertEqual(self.dev.path("files/game.romfs").read_bytes(), data)
+        first = [c for k, c in self.dev.log if k == "exec-in" and "game.romfs" in c][0]
+        self.assertIn("cat >> ", first)                    # continued, did not restart with ">"
+
+    def test_gives_up_when_chunks_keep_failing(self):
+        hp.CHUNK = 5000
+        self.dev.cut_chunks = 100
+        try:
+            with self.assertRaises(SystemExit) as c: self.push()
+        finally:
+            hp.CHUNK = 32 << 20
+        self.assertIn("giving up", str(c.exception))
 
     def test_adb_failure_aborts(self):
         self.dev.fail_next_transfer = True

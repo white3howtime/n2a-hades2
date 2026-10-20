@@ -18,6 +18,7 @@ from pathlib import Path
 TITLE_ID = "0100a00019de0000"
 MODULES = [f"{m}.{s}" for m in ("main", "sdk") for s in ("patched.bin", "fixups.tsv", "gates.tsv")]
 BASE = "files/d2r-mobile"
+CHUNK = 32 << 20     # files larger than this are sent chunk by chunk
 
 
 def sha256_file(path: Path) -> str:
@@ -93,6 +94,31 @@ class Adb:
         if rc:
             raise SystemExit(f"adb transfer failed ({rc}) for {local or remote_tmp}\n{out.decode(errors='replace')[-500:]}")
 
+    def stream_chunked(self, remote_tmp: str, local: Path, size: int, chunk: int = None, tries: int = 4, log=print):
+        """Resumable transfer of a large file: one adb call per chunk, so a dropped connection costs at most one chunk.
+        Whatever is already in remote_tmp is kept up to the last whole chunk and the transfer continues from there."""
+        chunk = chunk or CHUNK
+        rc, out = self.sh(f"stat -c %s {remote_tmp}", check=False)
+        have = int(out) if rc == 0 and out.isdigit() else 0
+        have = min(have, size) // chunk * chunk
+        if have:
+            self.sh(f"truncate -s {have} {remote_tmp}")
+            log(f"  resuming at {have >> 20} MiB")
+        with open(local, "rb") as f:
+            for offset in range(have, size, chunk):
+                f.seek(offset)
+                data = f.read(min(chunk, size - offset))
+                for attempt in range(tries):
+                    redirect = ">>" if offset else ">"
+                    rc, out = self.runner(self.base + ["exec-in", f"run-as {self.package} sh -c {shlex.quote('cat ' + redirect + ' ' + remote_tmp)}"], None, data)
+                    rc2, now = self.sh(f"stat -c %s {remote_tmp}", check=False)
+                    if rc == 0 and rc2 == 0 and now.isdigit() and int(now) == offset + len(data):
+                        break
+                    log(f"  chunk at {offset >> 20} MiB failed (adb rc {rc}, device has {now or '?'}), retry {attempt + 1}/{tries}")
+                    self.sh(f"truncate -s {offset} {remote_tmp}" if offset else f"rm -f {remote_tmp}", check=False)
+                else:
+                    raise SystemExit(f"giving up at {offset >> 20} MiB of {local.name}")
+
     def free_bytes(self):
         rc, out = self.sh("df -k files | tail -1", check=False)
         fields = out.split()
@@ -115,7 +141,10 @@ def push(adb: Adb, items, manifest, quick=False, log=print):
             if rc == 0 and out.split()[:1] == [digest]:
                 skipped += 1; continue
         log(f"push {dev} ({size >> 20} MiB)")
-        adb.stream(dev + ".new", local=local)
+        if size > CHUNK:
+            adb.stream_chunked(dev + ".new", local, size, log=log)
+        else:
+            adb.stream(dev + ".new", local=local)
         rc, out = adb.sh(f"stat -c %s {dev}.new")
         if int(out) != size:
             raise SystemExit(f"{dev}: device has {out} bytes after transfer, expected {size}")
