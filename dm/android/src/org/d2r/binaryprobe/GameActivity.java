@@ -70,7 +70,7 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
     private SurfaceView game;
     private TextView status,fps;
     private TextView modeControl;
-    private Button systemControl;
+    private View systemControl;
     private RendererSettingsDialog rendererSettings;
     private int appliedRendererFlags=RendererOptions.DEFAULT_FLAGS;
     private float appliedRenderScale=RenderQuality.AUTO;
@@ -153,11 +153,10 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
         FrameLayout.LayoutParams modeParams=new FrameLayout.LayoutParams(dp(100),dp(48),Gravity.LEFT|Gravity.TOP);modeParams.leftMargin=dp(18);modeParams.topMargin=dp(18);
         mode.setOnClickListener(v -> setTouchMode(!touchMode));
         // Hades II: the D2R mode switch and console-style D-pad / OK / Back / Start buttons are not added; HadesPadView provides the controls
-        Button system=new Button(this);systemControl=system;
-        refreshSystemLabel();system.setTextColor(TouchControlsView.TEXT);system.setTextSize(16);
-        system.setBackgroundTintList(ColorStateList.valueOf(TouchControlsView.INK));
-        FrameLayout.LayoutParams systemParams=new FrameLayout.LayoutParams(dp(80),dp(48),Gravity.LEFT|Gravity.TOP);
-        systemParams.leftMargin=dp(134);systemParams.topMargin=dp(18);
+        View system=new GearView(this);systemControl=system;
+        refreshSystemLabel();
+        FrameLayout.LayoutParams systemParams=new FrameLayout.LayoutParams(dp(40),dp(40),Gravity.RIGHT|Gravity.TOP);
+        systemParams.rightMargin=dp(48);systemParams.topMargin=dp(8);   // the slot left of Pause
         system.setOnClickListener(v -> {
             if(!configured||failed||rendererSettings!=null||keyboardDialog!=null||saveFailureDialog!=null)return;
             actionButtons=0;if(inputReady)nativeActions(0,0,0,0,0);touchControls.cancel();
@@ -184,7 +183,7 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
     }
     private String t(String text){return strings.text(text);}
     private void refreshSystemLabel(){
-        if(systemControl!=null){systemControl.setText(strings.chinese()?"系统":"System");systemControl.setContentDescription(strings.chinese()?"系统菜单":"System menu");}
+        if(systemControl!=null){systemControl.setContentDescription(strings.chinese()?"系统菜单":"System menu");}
     }
     private void refreshFrontendStrings(){
         refreshSystemLabel();
