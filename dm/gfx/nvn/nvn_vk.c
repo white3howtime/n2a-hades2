@@ -1589,6 +1589,13 @@ static VkFormat format(int nvn) {
     default:die("NVN pixel/vertex format",nvn);
     }
 }
+static VkFormat u32_as_float(VkFormat f) {
+    switch(f){case VK_FORMAT_R32_UINT:case VK_FORMAT_R32_SINT:return VK_FORMAT_R32_SFLOAT;
+    case VK_FORMAT_R32G32_UINT:case VK_FORMAT_R32G32_SINT:return VK_FORMAT_R32G32_SFLOAT;
+    case VK_FORMAT_R32G32B32_UINT:case VK_FORMAT_R32G32B32_SINT:return VK_FORMAT_R32G32B32_SFLOAT;
+    case VK_FORMAT_R32G32B32A32_UINT:case VK_FORMAT_R32G32B32A32_SINT:return VK_FORMAT_R32G32B32A32_SFLOAT;
+    default:return VK_FORMAT_UNDEFINED;}
+}
 static VkImageAspectFlags aspect(VkFormat f) {
     if(f==VK_FORMAT_D16_UNORM || f==VK_FORMAT_D32_SFLOAT) return VK_IMAGE_ASPECT_DEPTH_BIT;
     if(f==VK_FORMAT_D24_UNORM_S8_UINT || f==VK_FORMAT_D32_SFLOAT_S8_UINT) return VK_IMAGE_ASPECT_DEPTH_BIT|VK_IMAGE_ASPECT_STENCIL_BIT;
@@ -3523,7 +3530,13 @@ static void draw(const p_draw *a,const p_draw_idx *idx,int instances,int base_in
         if(v.fmt==NVN_FORMAT_NONE){has_default=1;continue;}
         NvnVkVertexFormat f=nvn_vk_vertex_format(v.fmt);if(!f.native)die("unsupported NVN vertex format",v.fmt);
         NvnVkVertexInput input=vs->vertex_inputs[location];
-        if(input.kind!=f.kind)die("vertex format/shader numeric type mismatch",location);
+        if(input.kind!=f.kind){
+            /* Hades II feeds 32-bit integer attributes to float-typed shader inputs (the translated shader bit-casts them). Maxwell hands over the raw
+             * words, so fetch them as same-width floats: the bits arrive unchanged. 8/16-bit mismatches still stop. */
+            VkFormat head_as=u32_as_float(f.head?f.head:f.native),native_as=u32_as_float(f.native),tail_as=f.tail?u32_as_float(f.tail):VK_FORMAT_UNDEFINED;
+            if(input.kind==0&&f.kind&&native_as&&head_as&&(!f.tail||tail_as)&&!f.convert){f.native=native_as;f.head=head_as;if(f.tail)f.tail=tail_as;f.kind=0;}
+            else{fprintf(stderr,"[nvn-vulkan] VERTEX_KIND_MISMATCH shader=%s location=%u shader_kind=%u components=%u nvn_format=%#x format_kind=%u\n",vs->key,location,(unsigned)input.kind,(unsigned)input.components,(unsigned)v.fmt,(unsigned)f.kind);die("vertex format/shader numeric type mismatch",location);}
+        }
         if(f.convert){
             unsigned components=(v.fmt>=0x51&&v.fmt<=0x68)?(v.fmt-0x51)/6+1:0;
             VkFormat native=nvn_vk_vertex_scaled_native(v.fmt,components);
@@ -3852,7 +3865,7 @@ static void clear_tex(const p_clear_tex *p) {
         die("texture clear view/region/mask",nvn);
     if(!p->r.width || !p->r.height)return;
     if(!p->is_uint && nvn==p->tex->d.format &&
-       (nvn==NVN_FORMAT_R11G11B10F || nvn==NVN_FORMAT_R16F || nvn==NVN_FORMAT_RG16F || nvn==NVN_FORMAT_RGBA16F) &&
+       (aspect(t->format)==VK_IMAGE_ASPECT_COLOR_BIT && !nvn_vk_format_integer(t->format)) &&   /* Hades II: any non-integer colour format (R16F, R16, RG16, ...) */
        !p->r.xoffset && !p->r.yoffset && (unsigned)p->r.width==w && (unsigned)p->r.height==h &&
        (!volume || (!p->r.zoffset && (unsigned)p->r.depth==z))) {
         /* Vulkan performs the target float packing, including R11G11B10,
