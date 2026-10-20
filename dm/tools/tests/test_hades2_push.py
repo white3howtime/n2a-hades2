@@ -156,9 +156,7 @@ class PushTest(unittest.TestCase):
             rc, out = real(argv, stdin_path, stdin_bytes)
             if argv[-2] == "shell" and noisy["left"] > 0:
                 noisy["left"] -= 1
-                out = out + b"
-* daemon not running; starting now at tcp:5037
-* daemon started successfully"
+                out = out + b"\r\n* daemon not running; starting now at tcp:5037\r\n* daemon started successfully"
             return rc, out
         self.adb.runner = runner
         (sent, _), _, items = self.push()
