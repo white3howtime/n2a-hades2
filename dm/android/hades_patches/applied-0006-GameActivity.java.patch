@@ -1,7 +1,16 @@
 diff --git a/dm/android/src/org/d2r/binaryprobe/GameActivity.java b/dm/android/src/org/d2r/binaryprobe/GameActivity.java
-index c3bae83..ea74629 100644
+index c3bae83..471a7e5 100644
 --- a/dm/android/src/org/d2r/binaryprobe/GameActivity.java
 +++ b/dm/android/src/org/d2r/binaryprobe/GameActivity.java
+@@ -70,7 +70,7 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
+     private SurfaceView game;
+     private TextView status,fps;
+     private TextView modeControl;
+-    private Button systemControl;
++    private View systemControl;
+     private RendererSettingsDialog rendererSettings;
+     private int appliedRendererFlags=RendererOptions.DEFAULT_FLAGS;
+     private float appliedRenderScale=RenderQuality.AUTO;
 @@ -78,7 +78,7 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
      private AndroidUpdateChecker updateChecker;
      private final GameDisplayMetrics.FpsSampler fpsSampler=new GameDisplayMetrics.FpsSampler();
@@ -20,7 +29,7 @@ index c3bae83..ea74629 100644
          FrameLayout root=new FrameLayout(this);root.setBackgroundColor(0xff0d0d0f);
          GameViewport viewport=new GameViewport(this);
          root.addView(viewport,new FrameLayout.LayoutParams(-1,-1,Gravity.CENTER));
-@@ -143,24 +145,14 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
+@@ -143,29 +145,18 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
              if(rc!=0)fail(t("触摸输入不可用"),new Exception(t("错误 ")+rc));return true;
          });
          viewport.addView(game,new FrameLayout.LayoutParams(-1,-1));
@@ -44,11 +53,29 @@ index c3bae83..ea74629 100644
          FrameLayout.LayoutParams modeParams=new FrameLayout.LayoutParams(dp(100),dp(48),Gravity.LEFT|Gravity.TOP);modeParams.leftMargin=dp(18);modeParams.topMargin=dp(18);
          mode.setOnClickListener(v -> setTouchMode(!touchMode));
 -        viewport.addView(mode,modeParams);
+-        Button system=new Button(this);systemControl=system;
+-        refreshSystemLabel();system.setTextColor(TouchControlsView.TEXT);system.setTextSize(16);
+-        system.setBackgroundTintList(ColorStateList.valueOf(TouchControlsView.INK));
+-        FrameLayout.LayoutParams systemParams=new FrameLayout.LayoutParams(dp(80),dp(48),Gravity.LEFT|Gravity.TOP);
+-        systemParams.leftMargin=dp(134);systemParams.topMargin=dp(18);
 +        // Hades II: the D2R mode switch and console-style D-pad / OK / Back / Start buttons are not added; HadesPadView provides the controls
-         Button system=new Button(this);systemControl=system;
-         refreshSystemLabel();system.setTextColor(TouchControlsView.TEXT);system.setTextSize(16);
-         system.setBackgroundTintList(ColorStateList.valueOf(TouchControlsView.INK));
-@@ -408,64 +400,40 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
++        View system=new GearView(this);systemControl=system;
++        refreshSystemLabel();
++        FrameLayout.LayoutParams systemParams=new FrameLayout.LayoutParams(dp(40),dp(40),Gravity.RIGHT|Gravity.TOP);
++        systemParams.rightMargin=dp(48);systemParams.topMargin=dp(8);   // the slot left of Pause
+         system.setOnClickListener(v -> {
+             if(!configured||failed||rendererSettings!=null||keyboardDialog!=null||saveFailureDialog!=null)return;
+             actionButtons=0;if(inputReady)nativeActions(0,0,0,0,0);touchControls.cancel();
+@@ -192,7 +183,7 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
+     }
+     private String t(String text){return strings.text(text);}
+     private void refreshSystemLabel(){
+-        if(systemControl!=null){systemControl.setText(strings.chinese()?"系统":"System");systemControl.setContentDescription(strings.chinese()?"系统菜单":"System menu");}
++        if(systemControl!=null){systemControl.setContentDescription(strings.chinese()?"系统菜单":"System menu");}
+     }
+     private void refreshFrontendStrings(){
+         refreshSystemLabel();
+@@ -408,64 +399,40 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
              if(!temporary.renameTo(target))throw new java.io.IOException(t("不能保存管线缓存"));
          }
      }
@@ -138,7 +165,7 @@ index c3bae83..ea74629 100644
      }
      private boolean installerReceiptCovers(long bytes,String hash){
          try{
-@@ -504,6 +472,11 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
+@@ -504,6 +471,11 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
              // Recover an interrupted main quality-setting write before native reads it.
              try{new RenderQualityStore(this).read();}
              catch(java.io.IOException error){fail(strings.chinese()?"无法读取画质设置":"Could not read graphics quality settings",error);return;}
@@ -150,7 +177,7 @@ index c3bae83..ea74629 100644
              int rc=nativeConfigure(getFilesDir().getAbsolutePath(),getResources().getConfiguration().getLocales().get(0).toLanguageTag(),
              getPackageManager().hasSystemFeature(android.content.pm.PackageManager.FEATURE_TOUCHSCREEN));
              if(rc==0)rc=nativeContentProfile(romfsBytes,addOnIndices);
-@@ -544,19 +517,12 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
+@@ -544,19 +516,12 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
              JSONObject scene=s.optJSONObject("scene");inGame=scene!=null&&scene.optInt("game",0)!=0;
              long frame=s.getLong("presented_frames");
              if(frame>0&&driverPending){driverPending=false;GraphicsDriverSettings.confirmStarted(GameActivity.this);}
