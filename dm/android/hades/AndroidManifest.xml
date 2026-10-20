@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Hades II port, debug build. Offline: no INTERNET permission. debuggable is required for `run-as` based data staging (tools/hades2_push.py). -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="org.hades2.mobile"
+    android:versionCode="1" android:versionName="0.0.1-debug">
+    <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="33" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <application android:label="Hades II (port)" android:debuggable="true" android:allowBackup="false"
+        android:extractNativeLibs="true" android:theme="@android:style/Theme.Material.NoActionBar">
+        <meta-data android:name="org.d2r.binaryprobe.UPDATE_URL" android:value="" />
+        <activity android:name="org.d2r.binaryprobe.GameActivity" android:exported="true"
+            android:screenOrientation="sensorLandscape" android:configChanges="orientation|screenSize|keyboardHidden"
+            android:launchMode="singleTask">
+            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+        </activity>
+    </application>
+</manifest>
