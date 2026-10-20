@@ -83,7 +83,10 @@ class Adb:
         rc, out = self.runner(self.base + ["shell", f"run-as {self.package} sh -c {shlex.quote(command)}"], None, None)
         if check and rc:
             raise SystemExit(f"device command failed ({rc}): {command}\n{out.decode(errors='replace')[-500:]}")
-        return rc, out.decode(errors="replace").strip()
+        # adb prints "* daemon not running..." on stdout when it has to start its server; that is not part of the command's output.
+        lines = [l for l in out.decode(errors="replace").splitlines() if not l.startswith("* daemon")]
+        return rc, "
+".join(lines).strip()
 
     def stream(self, remote_tmp: str, local: Path = None, data: bytes = None):
         rc, out = self.runner(self.base + ["exec-in", f"run-as {self.package} sh -c {shlex.quote('cat > ' + remote_tmp)}"],
