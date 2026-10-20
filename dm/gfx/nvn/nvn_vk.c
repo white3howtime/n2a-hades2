@@ -3404,6 +3404,27 @@ static void trace_mesh_range(const char *name,uint64_t address,uint64_t bytes) {
 static void command_bind_profile(unsigned kind,int issued) {
     if(issued)G.profile_cmd_issued[kind]++;else G.profile_cmd_skipped[kind]++;
 }
+/* Hades binds a vertex stream as [current offset, end of an 8 MiB ring), so every draw would sync megabytes it never reads.
+ * Bound the read to what this draw can fetch. shortcut: indexed draws scan the CPU copy of the indices only when no queued GPU write overlaps
+ * them and there are at most 65536; otherwise (and for stride 0) the whole range is read, which is correct but slow. */
+static uint64_t vertex_max_index(const p_draw_idx *idx,int64_t *out) {
+    uint64_t bytes=(uint64_t)idx->count*(idx->itype==NVN_INDEX_TYPE_UNSIGNED_SHORT?2:4);
+    if(idx->count<=0||idx->count>65536)return 0;
+    for(int j=0;j<S.nwrites;j++)if(overlap(idx->ibuf,bytes,S.writes[j].addr,S.writes[j].size))return 0;
+    uint32_t m=0;
+    if(idx->itype==NVN_INDEX_TYPE_UNSIGNED_SHORT){const uint16_t *x=(const uint16_t *)(uintptr_t)idx->ibuf;for(int i=0;i<idx->count;i++)if(x[i]>m)m=x[i];}
+    else{const uint32_t *x=(const uint32_t *)(uintptr_t)idx->ibuf;for(int i=0;i<idx->count;i++)if(x[i]>m)m=x[i];}
+    *out=(int64_t)m+idx->base_vertex;return 1;
+}
+static uint64_t vertex_read_len(const p_draw *a,const p_draw_idx *idx,int instances,int base_instance,uint32_t stride,uint32_t divisor,uint64_t size,int have_max,int64_t max_vertex) {
+    if(!stride)return size;
+    uint64_t last;
+    if(divisor){uint64_t n=a?(uint64_t)base_instance+(uint64_t)instances:(uint64_t)idx->base_instance+(uint64_t)idx->instances;if(!n)return size;last=(n-1)/divisor;}
+    else if(a){if(a->count<=0)return size;last=(uint64_t)a->first+(uint64_t)a->count-1;}
+    else{if(!have_max||max_vertex<0)return size;last=(uint64_t)max_vertex;}
+    uint64_t need=(last+1)*stride+64;   /* +64: the last vertex's attributes may extend a little past one stride */
+    return need<size?need:size;
+}
 static void draw(const p_draw *a,const p_draw_idx *idx,int instances,int base_instance) {
     if(!a&&!idx)die("draw parameters",0);
     int upper_left=atomic_load(&G.window_origin)==NVN_WINDOW_ORIGIN_MODE_UPPER_LEFT;
@@ -3584,9 +3605,10 @@ static void draw(const p_draw *a,const p_draw_idx *idx,int instances,int base_in
     }
     if(nattributes>G.properties.limits.maxVertexInputAttributes)die("vertex attribute count device limit",nattributes);
     vs->vertex_layout_logged=1;
+    int64_t max_vertex=0;int have_max=a?0:vertex_max_index(idx,&max_vertex);
     for(unsigned i=0;i<16;i++)if(used[i]) { vs_st v=G.state.streams[i];if(v.divisor>1)die("vertex divisor",v.divisor);
         bindings[nbindings++]=(VkVertexInputBindingDescription){i,v.stride,v.divisor?VK_VERTEX_INPUT_RATE_INSTANCE:VK_VERTEX_INPUT_RATE_VERTEX};
-        NVNbufferRange r=G.state.vbuf[i];if(!r.address || !r.size)die("unbound vertex stream",i);uint64_t offset=0;VPool *p=pool_read(r.address,r.size,&offset);
+        NVNbufferRange r=G.state.vbuf[i];if(!r.address || !r.size)die("unbound vertex stream",i);uint64_t offset=0;uint64_t rlen=vertex_read_len(a,idx,instances,base_instance,v.stride,v.divisor,r.size,have_max,max_vertex);VPool *p=pool_read(r.address,rlen,&offset);
         command_bind_profile(NVN_VK_CMD_VERTEX,nvn_vk_cmd_vertex(&S.command_state,G.enable_command_cache&&!G.trace_frame,S.command,i,p->v.b,offset)); }
     VkPipelineInputAssemblyStateCreateInfo ai={.sType=VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
         .topology=topology(a?a->prim:idx->prim)};
