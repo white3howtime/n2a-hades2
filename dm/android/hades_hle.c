@@ -203,13 +203,33 @@ HLE_FORCE("_ZN2nn3web11ShowWebPageEPNS0_18WebPageReturnValueERKNS0_14ShowWebPage
 }
 
 /* ---------- nn::codec ---------- */
-/* FMOD picks hardware or software Opus at run time and sizes its buffer for both. Failing the hardware initialisers sends it down the
- * software path, which the SDK runs natively on libopus. Assumes FMOD falls back on failure; not yet confirmed on a device. */
-HLE_FORCE("_ZN2nn5codec29InitializeHardwareOpusDecoderEPNS0_23HardwareOpusDecoderTypeEiiPvmi", "hwopus service; use the software decoder", Result, h_codec_HwInit,
-          void *dec, int rate, int channels, void *work, uint64_t size, int option) {
-    (void)dec; (void)rate; (void)channels; (void)work; (void)size; (void)option; return RES_FAIL;
+/* FMOD (statically linked in main) builds its Opus decoder in a ladder: hardware class first, software class when the hardware Initialize returns
+ * exactly 8 (main+0x1cef2c / +0x1cf014), any other non-zero value is a hard error (28). So the hardware initialisers return 8. Before that FMOD
+ * sizes one work buffer as max(hardware, software) and asks the hardware size from the hwopus service; the SDK would open "sm:" for it, so the
+ * hardware size queries are answered with the software sizes. */
+#define HADES_HWOPUS_NOT_SUPPORTED 8u
+static uint64_t hw_size(const char *software, int a, int b, int c, int d) {
+    uint64_t (*fn)(int, int, int, int) = guest_sym(software);
+    if (!fn) die("Hades codec: software work-buffer query %s is missing", software);
+    return fn(a, b, c, d);
 }
-HLE_FORCE("_ZN2nn5codec40InitializeHardwareOpusMultiStreamDecoderEPNS0_34HardwareOpusMultiStreamDecoderTypeEiiiiPKhPvmi", "hwopus service; use the software decoder", Result, h_codec_HwInitMulti,
+HLE_FORCE("_ZN2nn5codec36GetHardwareOpusDecoderWorkBufferSizeEii", "hwopus service; software size", uint64_t, h_codec_HwSize2, int rate, int channels) {
+    return hw_size("_ZN2nn5codec28GetOpusDecoderWorkBufferSizeEii", rate, channels, 0, 0);
+}
+HLE_FORCE("_ZN2nn5codec36GetHardwareOpusDecoderWorkBufferSizeEiii", "hwopus service; software size", uint64_t, h_codec_HwSize3, int rate, int channels, int option) {
+    (void)option; return hw_size("_ZN2nn5codec28GetOpusDecoderWorkBufferSizeEii", rate, channels, 0, 0);
+}
+HLE_FORCE("_ZN2nn5codec47GetHardwareOpusMultiStreamDecoderWorkBufferSizeEiiii", "hwopus service; software size", uint64_t, h_codec_HwMultiSize4, int rate, int channels, int total, int stereo) {
+    return hw_size("_ZN2nn5codec39GetOpusMultiStreamDecoderWorkBufferSizeEiiii", rate, channels, total, stereo);
+}
+HLE_FORCE("_ZN2nn5codec47GetHardwareOpusMultiStreamDecoderWorkBufferSizeEiiiii", "hwopus service; software size", uint64_t, h_codec_HwMultiSize5, int rate, int channels, int total, int stereo, int option) {
+    (void)option; return hw_size("_ZN2nn5codec39GetOpusMultiStreamDecoderWorkBufferSizeEiiii", rate, channels, total, stereo);
+}
+HLE_FORCE("_ZN2nn5codec29InitializeHardwareOpusDecoderEPNS0_23HardwareOpusDecoderTypeEiiPvmi", "hwopus service; FMOD falls back to software on 8", Result, h_codec_HwInit,
+          void *dec, int rate, int channels, void *work, uint64_t size, int option) {
+    (void)dec; (void)rate; (void)channels; (void)work; (void)size; (void)option; return HADES_HWOPUS_NOT_SUPPORTED;
+}
+HLE_FORCE("_ZN2nn5codec40InitializeHardwareOpusMultiStreamDecoderEPNS0_34HardwareOpusMultiStreamDecoderTypeEiiiiPKhPvmi", "hwopus service; FMOD falls back to software on 8", Result, h_codec_HwInitMulti,
           void *dec, int rate, int channels, int total, int stereo, const uint8_t *map, void *work, uint64_t size, int option) {
-    (void)dec; (void)rate; (void)channels; (void)total; (void)stereo; (void)map; (void)work; (void)size; (void)option; return RES_FAIL;
+    (void)dec; (void)rate; (void)channels; (void)total; (void)stereo; (void)map; (void)work; (void)size; (void)option; return HADES_HWOPUS_NOT_SUPPORTED;
 }

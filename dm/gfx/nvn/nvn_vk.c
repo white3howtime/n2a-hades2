@@ -1560,6 +1560,24 @@ static VkFormat format(int nvn) {
     case NVN_FORMAT_R32F:return VK_FORMAT_R32_SFLOAT; case NVN_FORMAT_RG32F:return VK_FORMAT_R32G32_SFLOAT;
     case NVN_FORMAT_RGB32F:return VK_FORMAT_R32G32B32_SFLOAT; case NVN_FORMAT_RGBA32F:return VK_FORMAT_R32G32B32A32_SFLOAT;
     case NVN_FORMAT_RGBA8:return VK_FORMAT_R8G8B8A8_UNORM; case NVN_FORMAT_RGBA8_SRGB:return VK_FORMAT_R8G8B8A8_SRGB;
+    /* Hades II: ASTC LDR is uploaded as stored (Adreno exposes textureCompressionASTC_LDR) */
+    case NVN_FORMAT_RGBA_ASTC_4x4:return VK_FORMAT_ASTC_4x4_UNORM_BLOCK;case NVN_FORMAT_RGBA_ASTC_4x4_SRGB:return VK_FORMAT_ASTC_4x4_SRGB_BLOCK;
+    case NVN_FORMAT_RGBA_ASTC_5x4:return VK_FORMAT_ASTC_5x4_UNORM_BLOCK;case NVN_FORMAT_RGBA_ASTC_5x4_SRGB:return VK_FORMAT_ASTC_5x4_SRGB_BLOCK;
+    case NVN_FORMAT_RGBA_ASTC_5x5:return VK_FORMAT_ASTC_5x5_UNORM_BLOCK;case NVN_FORMAT_RGBA_ASTC_5x5_SRGB:return VK_FORMAT_ASTC_5x5_SRGB_BLOCK;
+    case NVN_FORMAT_RGBA_ASTC_6x5:return VK_FORMAT_ASTC_6x5_UNORM_BLOCK;case NVN_FORMAT_RGBA_ASTC_6x5_SRGB:return VK_FORMAT_ASTC_6x5_SRGB_BLOCK;
+    case NVN_FORMAT_RGBA_ASTC_6x6:return VK_FORMAT_ASTC_6x6_UNORM_BLOCK;case NVN_FORMAT_RGBA_ASTC_6x6_SRGB:return VK_FORMAT_ASTC_6x6_SRGB_BLOCK;
+    case NVN_FORMAT_RGBA_ASTC_8x5:return VK_FORMAT_ASTC_8x5_UNORM_BLOCK;case NVN_FORMAT_RGBA_ASTC_8x5_SRGB:return VK_FORMAT_ASTC_8x5_SRGB_BLOCK;
+    case NVN_FORMAT_RGBA_ASTC_8x6:return VK_FORMAT_ASTC_8x6_UNORM_BLOCK;case NVN_FORMAT_RGBA_ASTC_8x6_SRGB:return VK_FORMAT_ASTC_8x6_SRGB_BLOCK;
+    case NVN_FORMAT_RGBA_ASTC_8x8:return VK_FORMAT_ASTC_8x8_UNORM_BLOCK;case NVN_FORMAT_RGBA_ASTC_8x8_SRGB:return VK_FORMAT_ASTC_8x8_SRGB_BLOCK;
+    case NVN_FORMAT_RGBA_ASTC_10x5:return VK_FORMAT_ASTC_10x5_UNORM_BLOCK;case NVN_FORMAT_RGBA_ASTC_10x5_SRGB:return VK_FORMAT_ASTC_10x5_SRGB_BLOCK;
+    case NVN_FORMAT_RGBA_ASTC_10x6:return VK_FORMAT_ASTC_10x6_UNORM_BLOCK;case NVN_FORMAT_RGBA_ASTC_10x6_SRGB:return VK_FORMAT_ASTC_10x6_SRGB_BLOCK;
+    case NVN_FORMAT_RGBA_ASTC_10x8:return VK_FORMAT_ASTC_10x8_UNORM_BLOCK;case NVN_FORMAT_RGBA_ASTC_10x8_SRGB:return VK_FORMAT_ASTC_10x8_SRGB_BLOCK;
+    case NVN_FORMAT_RGBA_ASTC_10x10:return VK_FORMAT_ASTC_10x10_UNORM_BLOCK;case NVN_FORMAT_RGBA_ASTC_10x10_SRGB:return VK_FORMAT_ASTC_10x10_SRGB_BLOCK;
+    case NVN_FORMAT_RGBA_ASTC_12x10:return VK_FORMAT_ASTC_12x10_UNORM_BLOCK;case NVN_FORMAT_RGBA_ASTC_12x10_SRGB:return VK_FORMAT_ASTC_12x10_SRGB_BLOCK;
+    case NVN_FORMAT_RGBA_ASTC_12x12:return VK_FORMAT_ASTC_12x12_UNORM_BLOCK;case NVN_FORMAT_RGBA_ASTC_12x12_SRGB:return VK_FORMAT_ASTC_12x12_SRGB_BLOCK;
+    case NVN_FORMAT_BGRA8:case NVN_FORMAT_BGRX8:return VK_FORMAT_B8G8R8A8_UNORM;   /* Hades II: BGRX alpha is sampled as stored (the X byte is not forced to 1) */
+    case NVN_FORMAT_BGRA8_SRGB:case NVN_FORMAT_BGRX8_SRGB:return VK_FORMAT_B8G8R8A8_SRGB;
+    case NVN_FORMAT_BGR565:return VK_FORMAT_R5G6B5_UNORM_PACK16;
     case NVN_FORMAT_RGBA8_UI2F:return VK_FORMAT_R8G8B8A8_USCALED;case NVN_FORMAT_RGBA8_I2F:return VK_FORMAT_R8G8B8A8_SSCALED;
     case NVN_FORMAT_RGB10A2SN:return VK_FORMAT_A2B10G10R10_SNORM_PACK32;
     case NVN_FORMAT_RGB10A2I:return VK_FORMAT_A2B10G10R10_SINT_PACK32;
@@ -1762,8 +1780,12 @@ upload_existing:
             int bw=1,bh=1; int bb=nvn_fmt_bpb(source->d.format,&bw,&bh); if(!bb)die("texture block size",source->d.format);
             uint64_t row=(uint64_t)((w+bw-1)/bw)*bb,rows=(h+bh-1)/bh;
             uint8_t *linear=malloc(row*rows*z); if(!linear)die("texture decode allocation",row*rows*z);
-            if(source->d.flags&NVN_TEXTURE_FLAGS_LINEAR) { free(linear); die("linear texture upload layout",source->d.flags); }
-            if(nvn_deswizzle(&source->d,level,layer,upload_memory,linear,row))die("Tegra texture deswizzle",level);
+            if(source->d.flags&NVN_TEXTURE_FLAGS_LINEAR) {
+                /* Hades II: pitch-linear texture = one level, one layer, rows `stride` bytes apart */
+                uint64_t pitch=source->d.stride?source->d.stride:row;
+                if(level||layer||z!=1||pitch<row||pitch*rows>source->L.size){ free(linear); die("linear texture upload layout",source->d.flags); }
+                for(uint64_t y=0;y<rows;y++)memcpy(linear+y*row,upload_memory+y*pitch,row);
+            } else if(nvn_deswizzle(&source->d,level,layer,upload_memory,linear,row))die("Tegra texture deswizzle",level);
             VkImageAspectFlags upload_aspect=aspect(t->format);
             if(upload_aspect&VK_IMAGE_ASPECT_STENCIL_BIT){
                 uint64_t pixels=(uint64_t)w*h*z;
@@ -1780,6 +1802,12 @@ upload_existing:
                     {.imageSubresource={VK_IMAGE_ASPECT_DEPTH_BIT,level,layer,1},.imageExtent={w,h,z}},
                     {.bufferOffset=pixels*4,.imageSubresource={VK_IMAGE_ASPECT_STENCIL_BIT,level,layer,1},.imageExtent={w,h,z}}};
                 vkCmdCopyBufferToImage(S.command,split->b,t->image,VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,2,copies);continue;
+            }
+            if(!upload_bc && (bw>1 || bh>1)) {   /* natively supported block-compressed format (ASTC): hand the block rows to Vulkan unchanged */
+                VBuffer *blocks=temporary(row*rows*z,VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
+                memcpy(blocks->map,linear,(size_t)(row*rows*z)); free(linear);
+                VkBufferImageCopy copy={.bufferRowLength=(uint32_t)(row/bb)*bw,.bufferImageHeight=(uint32_t)rows*bh,.imageSubresource={upload_aspect,level,layer,1},.imageExtent={w,h,z}};
+                vkCmdCopyBufferToImage(S.command,blocks->b,t->image,VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,1,&copy);continue;
             }
             VBuffer *staging=temporary((uint64_t)w*h*z*t->bpp,VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
             if(upload_bc) {for(unsigned slice=0;slice<z;++slice)if(nvn_bc_decode(source->d.format,linear+slice*row*rows,row,w,h,staging->map+(size_t)slice*w*h*t->bpp,(size_t)w*t->bpp))die("BC decode",source->d.format); }
@@ -1829,12 +1857,28 @@ void mtl_tex_release(tex_t *source) {
     }
     pthread_mutex_unlock(&G.lock);
 }
-void mtl_reg_tex(int id,const tex_t *t,const view_t *v) {
-    mtl_init();pthread_mutex_lock(&G.lock);
-    if(id<0 || id>=G.texture_pool_n || (size_t)id>=G.texture_slots)die("texture descriptor id",id); G.tslot[id].live=t!=NULL;
-    if(t) G.tslot[id].texture=*t; G.tslot[id].has_view=v!=NULL; if(v)G.tslot[id].view=*v;
-    G.tslot[id].resident=(TextureRef){0};G.tslot[id].revision=++G.registry_revision;pthread_mutex_unlock(&G.lock);
+/* Hades II creates several texture pools. Each pool has its own descriptor table; G.tslot / texture_slots / texture_pool_n always
+ * describe the table of the pool the replay last bound (OP_SET_TEX_POOL), so every lookup below stays pool-relative. pool NULL = the
+ * default table used by the single-pool entry points. */
+typedef struct { const void *pool; TSlot *slots; size_t nslots; int pool_n; } TexTable;
+static TexTable g_tex_tables[16];static int g_ntex_tables;
+static TexTable *tex_table_for(const void *pool) {
+    for(int i=0;i<g_ntex_tables;i++)if(g_tex_tables[i].pool==pool)return &g_tex_tables[i];
+    if(g_ntex_tables==16)die("too many texture descriptor pools",16);
+    TexTable *t=&g_tex_tables[g_ntex_tables++];*t=(TexTable){.pool=pool};return t;
 }
+static void tex_table_activate(const void *pool) {
+    TexTable *t=tex_table_for(pool);G.tslot=t->slots;G.texture_slots=t->nslots;G.texture_pool_n=t->pool_n;G.registry_revision++;
+}
+void mtl_reg_tex_pool(const void *pool,int id,const tex_t *t,const view_t *v) {
+    mtl_init();pthread_mutex_lock(&G.lock);
+    TexTable *tt=tex_table_for(pool);
+    if(id<0 || id>=tt->pool_n || (size_t)id>=tt->nslots)die("texture descriptor id",id);
+    TSlot *slot=&tt->slots[id];slot->live=t!=NULL;
+    if(t) slot->texture=*t; slot->has_view=v!=NULL; if(v)slot->view=*v;
+    slot->resident=(TextureRef){0};slot->revision=++G.registry_revision;pthread_mutex_unlock(&G.lock);
+}
+void mtl_reg_tex(int id,const tex_t *t,const view_t *v) { mtl_reg_tex_pool(NULL,id,t,v); }
 static VkSamplerAddressMode wrap(unsigned w) { switch(w) {
     case NVN_WRAP_MODE_REPEAT:return VK_SAMPLER_ADDRESS_MODE_REPEAT;
     case NVN_WRAP_MODE_MIRRORED_REPEAT:return VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
@@ -1877,21 +1921,25 @@ static VkSampler sampler_for_format(SSlot *slot,VkFormat format) {
         fprintf(stderr,"[nvn-vulkan] SAMPLER_FALLBACK format=%u integer=%d\n",format,nvn_vk_format_integer(format));}
     return *variant;
 }
-void mtl_set_tex_pool_n(int n) {
+void mtl_set_tex_pool_n_pool(const void *pool,int n) {
     mtl_init();pthread_mutex_lock(&G.lock);
     /* NVN handles encode a 20-bit texture descriptor ID. Descriptor slots are
      * CPU metadata, independent of the number of resident Vulkan images. */
     if(n<0 || n>(1<<20))die("texture pool capacity",n);
-    if((size_t)n>G.texture_slots) {
-        TSlot *slots=realloc(G.tslot,(size_t)n*sizeof(*slots));
+    TexTable *tt=tex_table_for(pool);
+    if((size_t)n>tt->nslots) {
+        TSlot *slots=realloc(tt->slots,(size_t)n*sizeof(*slots));
         if(!slots)die("texture descriptor allocation",n);
-        memset(slots+G.texture_slots,0,((size_t)n-G.texture_slots)*sizeof(*slots));
-        G.tslot=slots;G.texture_slots=(size_t)n;
+        memset(slots+tt->nslots,0,((size_t)n-tt->nslots)*sizeof(*slots));
+        tt->slots=slots;tt->nslots=(size_t)n;
     }
-    G.texture_pool_n=n;G.registry_revision++;
-    fprintf(stderr,"[nvn-vulkan] texture descriptor slots=%d resident image limit=%d\n",n,LIMIT_OBJECTS);
+    tt->pool_n=n;
+    if(G.tslot==NULL || G.state.texture_pool==NULL || (const void *)G.state.texture_pool==pool)tex_table_activate(pool);   /* keep G.* pointing at the live table after a realloc */
+    G.registry_revision++;
+    fprintf(stderr,"[nvn-vulkan] texture descriptor slots=%d resident image limit=%d pool=%p\n",n,LIMIT_OBJECTS,pool);
     pthread_mutex_unlock(&G.lock);
 }
+void mtl_set_tex_pool_n(int n) { mtl_set_tex_pool_n_pool(NULL,n); }
 
 static uint8_t *read_file(const char *name,size_t *size) {
     char path[1200]; if(!G.shader_root[0] || snprintf(path,sizeof(path),"%s/%s",G.shader_root,name)>=(int)sizeof(path))die("shader cache path",0);
@@ -4142,8 +4190,9 @@ static void execute(const uint8_t *p,unsigned depth) {
         case OP_SET_TEX_POOL:case OP_SET_SAMP_POOL:payload_check(&h,sizeof(p_set_pool));
             if(!((const p_set_pool *)a)->pool)die("null descriptor pool",h.op);
             {const dpool_t **current=h.op==OP_SET_TEX_POOL?&G.state.texture_pool:&G.state.sampler_pool;
-             if(*current && *current!=((const p_set_pool *)a)->pool)die("multiple descriptor pools need qualified registration",h.op);
-             if(!*current){*current=((const p_set_pool *)a)->pool;for(unsigned stage=0;stage<6;stage++){G.binding_revision[stage]++;G.ssbo_revision[stage]++;G.texbind_revision[stage]++;}}}break;
+             const dpool_t *wanted=((const p_set_pool *)a)->pool;
+             if(h.op==OP_SET_SAMP_POOL && *current && *current!=wanted)die("multiple sampler descriptor pools need qualified registration",h.op);
+             if(*current!=wanted){*current=wanted;if(h.op==OP_SET_TEX_POOL)tex_table_activate(wanted);for(unsigned stage=0;stage<6;stage++){G.binding_revision[stage]++;G.ssbo_revision[stage]++;G.texbind_revision[stage]++;}}}break;
         default:die("unimplemented NVN command opcode",h.op);
         }
         p+=h.size;

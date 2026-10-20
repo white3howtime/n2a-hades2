@@ -135,6 +135,22 @@ static void fatal_signal(int sig, siginfo_t *info, void *opaque) {
         if (n > 0) write(STDERR_FILENO, line, (size_t)n < sizeof line ? (size_t)n : sizeof line - 1);
     }
     dm_backtrace(u->uc_mcontext.regs[29]);
+    {   /* 栈扫描：把栈上落在模块里的字打出来，帧链不可信时用 | stack scan: print stack words that fall inside a module, for when the frame chain cannot be trusted */
+        uint64_t w[160]; struct iovec lo={w,sizeof w},re={(void *)(uintptr_t)(u->uc_mcontext.sp&0x00ffffffffffffffULL),sizeof w};
+        if(syscall(SYS_process_vm_readv,getpid(),&lo,1,&re,1,0)==(ssize_t)sizeof w)
+            for(unsigned i=0;i<160;++i){ module_t *m=module_of((void *)(uintptr_t)w[i]);
+                if(m&&(uintptr_t)w[i]>=(uintptr_t)m->base){ n=snprintf(line,sizeof line,"ANDROID_STACKWORD +%#x %s+%#llx\n",i*8,m->name,(unsigned long long)(w[i]-(uint64_t)(uintptr_t)m->base)); if(n>0)write(STDERR_FILENO,line,(size_t)n<sizeof line?(size_t)n:sizeof line-1);} }
+    }
+    for (int i = 0; i < g_nmod; ++i) if (!strcmp(g_mod[i].name, "sdk")) {   // 临时诊断：TLS 分配器槽 | temporary diagnostics: TLS allocator slots
+        uint64_t *q = (uint64_t *)((char *)g_mod[i].base + 0xb91000);
+        n = snprintf(line, sizeof line, "ANDROID_TLSALLOC %#llx %#llx %#llx\n", (unsigned long long)q[1], (unsigned long long)q[2], (unsigned long long)q[0]);
+        if (n > 0) write(STDERR_FILENO, line, (size_t)n < sizeof line ? (size_t)n : sizeof line - 1);
+        uint32_t code[8]; struct iovec lo = {code, sizeof code}, re = {(void *)(uintptr_t)(q[1] & 0x00ffffffffffffffULL), sizeof code};
+        if (syscall(SYS_process_vm_readv, getpid(), &lo, 1, &re, 1, 0) == (ssize_t)sizeof code) {
+            n = snprintf(line, sizeof line, "ANDROID_TLSCODE %08x %08x %08x %08x %08x %08x %08x %08x\n", code[0], code[1], code[2], code[3], code[4], code[5], code[6], code[7]);
+            if (n > 0) write(STDERR_FILENO, line, (size_t)n < sizeof line ? (size_t)n : sizeof line - 1);
+        }
+    }
     _exit(128 + sig);
 }
 static void setup_signals(void) {
