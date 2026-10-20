@@ -143,13 +143,6 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
             if(rc!=0)fail(t("触摸输入不可用"),new Exception(t("错误 ")+rc));return true;
         });
         viewport.addView(game,new FrameLayout.LayoutParams(-1,-1));
-        addAction(viewport,"确认",1,Gravity.RIGHT|Gravity.BOTTOM,18,18);
-        addAction(viewport,"返回",2,Gravity.RIGHT|Gravity.BOTTOM,104,18);
-        addAction(viewport,"开始",1L<<10,Gravity.RIGHT|Gravity.TOP,18,18);
-        addAction(viewport,"↑",1L<<13,Gravity.LEFT|Gravity.BOTTOM,92,92);
-        addAction(viewport,"↓",1L<<15,Gravity.LEFT|Gravity.BOTTOM,92,18);
-        addAction(viewport,"←",1L<<12,Gravity.LEFT|Gravity.BOTTOM,18,55);
-        addAction(viewport,"→",1L<<14,Gravity.LEFT|Gravity.BOTTOM,166,55);
         touchControls=new org.hades2.mobile.HadesPadView(this,() -> inputReady&&resumed&&!failed,
             (buttons,lx,ly,rx,ry) -> {if(inputReady)nativeActions(buttons,lx,ly,rx,ry);});
         viewport.addView(touchControls,new FrameLayout.LayoutParams(-1,-1));
@@ -157,7 +150,7 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
         mode.setGravity(Gravity.CENTER);mode.setBackgroundColor(0x8030241b);mode.setContentDescription(strings.modeDescription(touchMode));mode.setClickable(true);mode.setFocusable(true);
         FrameLayout.LayoutParams modeParams=new FrameLayout.LayoutParams(dp(100),dp(48),Gravity.LEFT|Gravity.TOP);modeParams.leftMargin=dp(18);modeParams.topMargin=dp(18);
         mode.setOnClickListener(v -> setTouchMode(!touchMode));
-        viewport.addView(mode,modeParams);
+        // Hades II: the D2R mode switch and console-style D-pad / OK / Back / Start buttons are not added; HadesPadView provides the controls
         Button system=new Button(this);systemControl=system;
         refreshSystemLabel();system.setTextColor(TouchControlsView.TEXT);system.setTextSize(16);
         system.setBackgroundTintList(ColorStateList.valueOf(TouchControlsView.INK));

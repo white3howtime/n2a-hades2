@@ -3853,6 +3853,7 @@ static void clear_tex(const p_clear_tex *p) {
     unsigned level=v&&v->set_levels?v->base_level:0,layer=v&&v->set_layers?v->min_layer:0;
     int nvn=v&&v->set_format?v->format:p->tex->d.format;
     VTexture *t=texture_get(p->tex,0);
+    static unsigned clear_logged;if(clear_logged++<16)
     fprintf(stderr,"[nvn-vulkan] CLEAR_TEX serial=%llu basefmt=%d viewfmt=%d region=%d,%d,%d,%d,%d,%d uint=%u\n",(unsigned long long)p->tex->serial,p->tex->d.format,nvn,p->r.xoffset,p->r.yoffset,p->r.zoffset,p->r.width,p->r.height,p->r.depth,p->is_uint);
     unsigned w=t->width>>level,h=t->height>>level;if(!w)w=1;if(!h)h=1;
     int volume=p->tex->d.target==NVN_TEXTURE_TARGET_3D;

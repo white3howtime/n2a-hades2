@@ -1088,6 +1088,7 @@ NVN(nvnCommandBufferSetShaderScratchMemory, void, NVNcommandBuffer *c, const NVN
        (uint64_t)offset>pool->size || size>pool->size-(uint64_t)offset)
         die("Android NVN invalid shader scratch range offset=%lld size=%llu",(long long)offset,(unsigned long long)size);
     *REC(c,OP_SHADER_SCRATCH,p_bind_buf)=(p_bind_buf){.addr=(uint64_t)(uintptr_t)(pool->mem+offset),.size=size};
+    static _Atomic int scratch_logged;if(atomic_fetch_add(&scratch_logged,1)<8)
     LOG("ANDROID_NVN_SHADER_SCRATCH offset=%lld bytes=%llu SPIRV_private_memory=true",(long long)offset,(unsigned long long)size);
 }
 #endif
