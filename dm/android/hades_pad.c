@@ -121,7 +121,7 @@ int hp_config_parse(hp_config *c, const char *text) {
 static void center_of(const hp_state *s, int b, float *x, float *y) {
     float u = s->density, ax, ay;
     switch (LAY[b].anchor) {
-    case AN_R: ax = s->w - s->inset_r - 92 * u;  ay = s->h - s->inset_b - 84 * u; break;
+    case AN_R: ax = s->w - s->inset_r - 112 * u;  ay = s->h - s->inset_b - 84 * u; break;
     case AN_L: ax = s->inset_l + 80 * u;         ay = s->h - s->inset_b - 84 * u; break;
     case AN_T: ax = s->w - s->inset_r;           ay = 0; break;
     default:   ax = s->w * .5f;                  ay = 0; break;

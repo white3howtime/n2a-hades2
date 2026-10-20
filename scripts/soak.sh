@@ -4,7 +4,7 @@
 # Coordinates are landscape pixels of a 2640x1216 screen (joystick area left, buttons right); adjust the variables for other phones.
 . "$(dirname "$0")/env.sh"
 MIN=${1:-6}
-CAST="2205 706"; ATTACK="2316 924"; DASH="2544 983"; SPECIAL="2095 911"   # fill-screen layout (default)
+CAST="2135 706"; ATTACK="2246 924"; DASH="2474 983"; SPECIAL="2025 911"   # fill-screen layout (default)
 mkdir -p "$N2A_LOCAL/logs"; : > "$N2A_LOCAL/logs/soak-mem.txt"
 "$(dirname "$0")/run_game.sh" 5 >/dev/null
 for i in 1 2 3; do "$ADB" shell "input swipe $CAST $CAST 150"; sleep 6; done   # title -> slot -> load
