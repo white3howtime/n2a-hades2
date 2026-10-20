@@ -194,11 +194,27 @@ static void test_net_misc(void) {
     Result (*web)(void *, const void *) = F("_ZN2nn3web11ShowWebPageEPNS0_18WebPageReturnValueERKNS0_14ShowWebPageArgE"); CHECK(web(NULL, NULL) != RES_OK);
 }
 
+/* fake software work-buffer queries: the result encodes which function was called and with what */
+static uint64_t fake_sw_size(int a, int b, int c, int d) { return 1000000ull * a + 10000ull * b + 100ull * c + d; }
+static uint64_t fake_sw_multi(int a, int b, int c, int d) { return 5000000000ull + fake_sw_size(a, b, c, d); }
+void *guest_sym(const char *name) {
+    if (!strcmp(name, "_ZN2nn5codec28GetOpusDecoderWorkBufferSizeEii")) return (void *)fake_sw_size;
+    if (!strcmp(name, "_ZN2nn5codec39GetOpusMultiStreamDecoderWorkBufferSizeEiiii")) return (void *)fake_sw_multi;
+    return NULL;
+}
 static void test_codec(void) {
+    /* FMOD falls back to its software decoder only when the hardware initialisers return exactly 8 */
     Result (*hw)(void *, int, int, void *, uint64_t, int) = F("_ZN2nn5codec29InitializeHardwareOpusDecoderEPNS0_23HardwareOpusDecoderTypeEiiPvmi");
-    CHECK(hw(NULL, 48000, 2, NULL, 0, 0) != RES_OK);
+    CHECK(hw(NULL, 48000, 2, NULL, 0, 0) == 8);
     Result (*hm)(void *, int, int, int, int, const uint8_t *, void *, uint64_t, int) = F("_ZN2nn5codec40InitializeHardwareOpusMultiStreamDecoderEPNS0_34HardwareOpusMultiStreamDecoderTypeEiiiiPKhPvmi");
-    CHECK(hm(NULL, 48000, 6, 4, 2, NULL, NULL, 0, 0) != RES_OK);
+    CHECK(hm(NULL, 48000, 6, 4, 2, NULL, NULL, 0, 0) == 8);
+    /* hardware size queries are answered from the software ones (the SDK would otherwise open sm:) */
+    uint64_t (*s2)(int, int) = F("_ZN2nn5codec36GetHardwareOpusDecoderWorkBufferSizeEii");
+    uint64_t (*s3)(int, int, int) = F("_ZN2nn5codec36GetHardwareOpusDecoderWorkBufferSizeEiii");
+    CHECK(s2(48, 2) == fake_sw_size(48, 2, 0, 0)); CHECK(s3(48, 2, 7) == fake_sw_size(48, 2, 0, 0));
+    uint64_t (*m4)(int, int, int, int) = F("_ZN2nn5codec47GetHardwareOpusMultiStreamDecoderWorkBufferSizeEiiii");
+    uint64_t (*m5)(int, int, int, int, int) = F("_ZN2nn5codec47GetHardwareOpusMultiStreamDecoderWorkBufferSizeEiiiii");
+    CHECK(m4(48, 6, 4, 2) == fake_sw_multi(48, 6, 4, 2)); CHECK(m5(48, 6, 4, 2, 9) == fake_sw_multi(48, 6, 4, 2));
 }
 
 int main(int argc, char **argv) {

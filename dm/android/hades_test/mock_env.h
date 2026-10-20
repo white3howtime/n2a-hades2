@@ -23,6 +23,7 @@ void *mock_force_lookup(const char *name);
     static ret cname(__VA_ARGS__)
 
 void die(const char *fmt, ...) __attribute__((noreturn));
+void *guest_sym(const char *name);
 ssize_t dm_data_pread(int fd, void *buf, size_t n, off_t off);
 
 typedef struct { int64_t sampling; uint64_t buttons; int32_t lx, ly, rx, ry; uint32_t attributes, reserved; } dm_android_npad_state;
