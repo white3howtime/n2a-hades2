@@ -78,7 +78,7 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
     private AndroidUpdateChecker updateChecker;
     private final GameDisplayMetrics.FpsSampler fpsSampler=new GameDisplayMetrics.FpsSampler();
     private double displayedFps=Double.NaN;
-    private TouchControlsView touchControls;
+    private org.hades2.mobile.HadesPadView touchControls;
     private final java.util.ArrayList<View> menuControls=new java.util.ArrayList<>();
     private boolean prepared, configured, surfaceReady, launched, resumed, failed;
     private long romfsBytes;
@@ -150,11 +150,8 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
         addAction(viewport,"↓",1L<<15,Gravity.LEFT|Gravity.BOTTOM,92,18);
         addAction(viewport,"←",1L<<12,Gravity.LEFT|Gravity.BOTTOM,18,55);
         addAction(viewport,"→",1L<<14,Gravity.LEFT|Gravity.BOTTOM,166,55);
-        touchControls=new TouchControlsView(this,() -> inputReady&&resumed&&!failed,strings);
-        touchControls.setTouchActivation(() -> {
-            if(inGame&&gameInputReady()){setTouchMode(true);return true;}
-            return false;
-        });
+        touchControls=new org.hades2.mobile.HadesPadView(this,() -> inputReady&&resumed&&!failed,
+            (buttons,lx,ly,rx,ry) -> {if(inputReady)nativeActions(buttons,lx,ly,rx,ry);});
         viewport.addView(touchControls,new FrameLayout.LayoutParams(-1,-1));
         TextView mode=new TextView(this);modeControl=mode;mode.setText(strings.modeLabel(touchMode));mode.setTextColor(0xffe9d9ba);mode.setTextSize(16);
         mode.setGravity(Gravity.CENTER);mode.setBackgroundColor(0x8030241b);mode.setContentDescription(strings.modeDescription(touchMode));mode.setClickable(true);mode.setFocusable(true);
@@ -544,19 +541,12 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
             JSONObject scene=s.optJSONObject("scene");inGame=scene!=null&&scene.optInt("game",0)!=0;
             long frame=s.getLong("presented_frames");
             if(frame>0&&driverPending){driverPending=false;GraphicsDriverSettings.confirmStarted(GameActivity.this);}
-            if(frame>0&&touchControls!=null&&touchControls.refreshLanguage())refreshFrontendStrings();
             if(frame>0)status.setVisibility(View.GONE);else status.setText(t(s.getString("phase")));
             if(resumed){double current=fpsSampler.sample(frame,SystemClock.elapsedRealtime());
                 if(!Double.isNaN(current)&&Double.compare(current,displayedFps)!=0){
                     fps.setText(String.format(getResources().getConfiguration().getLocales().get(0),"FPS %.1f",current));
                     displayedFps=current;
                 }}
-            /* The native title adapter publishes the same state contract used
-             * by the iOS touch overlay.  Pull it at the UI cadence so target
-             * visibility (navigation/panels/belt/held item) follows the game
-             * without making JNI calls from MotionEvent dispatch. */
-            if(touchControls!=null){int[] ts=nativeTouchGameState();if(ts!=null&&ts.length>=10)
-                touchControls.setGameState(ts[0]!=0,ts[1],ts[2],ts[3]!=0,ts[4]!=0,ts[5],ts[6]!=0,ts[7],ts[8],ts[9]);}
             String request=nativeKeyboardRequest();if(request!=null&&resumed&&!destroyed){JSONObject k=new JSONObject(request);long id=k.getLong("id");
                 if(keyboardDialog==null||keyboardId!=id){closeRendererSettings();if(keyboardDialog!=null)keyboardDialog.dismiss();keyboardId=id;actionButtons=0;nativeActions(0,0,0,0,0);touchControls.cancel();
                     keyboardDialog=ShellTextInputDialog.show(GameActivity.this,k.getString("title"),k.getString("subtitle"),k.getString("hint"),k.getString("initial"),k.getInt("min"),k.getInt("max"),strings,(ok,text)->{nativeKeyboardResult(id,ok,text);keyboardDialog=null;});}}
