@@ -1,0 +1,13 @@
+diff --git a/dm/android/CMakeLists.txt b/dm/android/CMakeLists.txt
+index 377d5bb..c019b68 100644
+--- a/dm/android/CMakeLists.txt
++++ b/dm/android/CMakeLists.txt
+@@ -210,6 +210,8 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/romfs_image.c")
+   set(DM_ANDROID_VAULT_TABLE "" CACHE FILEPATH "Generated dm_vault_tab.h for the D2R UI bridge")
+   option(DM_ANDROID_D2R_HOST_MODULES "Enable verified D2R 94012 private adapters" OFF)
+   add_library(d2r_mobile_android SHARED app_jni.c ${DM_RESOURCE_PROBE_SOURCE})
++  # Hades II: on-screen gamepad (platform-free core + JNI glue for org.hades2.mobile.HadesPadView) and service-layer HLE.
++  target_sources(d2r_mobile_android PRIVATE hades_pad.c hades_pad_jni.c hades_hle.c)
+   target_include_directories(d2r_mobile_android PRIVATE "${CMAKE_BINARY_DIR}/generated")
+   if(DM_ANDROID_D2R_HOST_MODULES)
+   if(NOT DM_ANDROID_VAULT_TABLE)

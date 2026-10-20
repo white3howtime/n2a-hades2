@@ -1,0 +1,33 @@
+diff --git a/dm/gfx/nvn/hle_nvn.c b/dm/gfx/nvn/hle_nvn.c
+index 10831f0..13e1329 100644
+--- a/dm/gfx/nvn/hle_nvn.c
++++ b/dm/gfx/nvn/hle_nvn.c
+@@ -375,10 +375,10 @@ NVN(nvnBufferInvalidateMappedRange,void,const NVNbuffer *object,ptrdiff_t offset
+ // ---------- Descriptor pools ----------
+ NVN(nvnTexturePoolInitialize, NVNboolean, NVNtexturePool *tp, const NVNmemoryPool *p, ptrdiff_t off, int n) {
+     ANDROID_DRAIN();
+-    *(dpool_t *)tp = (dpool_t){(const pool_t *)p, off, n}; OLOG("TexturePool n=%d", n); mtl_set_tex_pool_n(n); return 1;
++    *(dpool_t *)tp = (dpool_t){(const pool_t *)p, off, n}; OLOG("TexturePool n=%d", n); mtl_set_tex_pool_n_pool(tp, n); return 1;
+ }
+ NVN(nvnTexturePoolFinalize, void, NVNtexturePool *tp) { (void)tp; ANDROID_DRAIN(); }
+-NVN(nvnTexturePoolRegisterTexture, void, const NVNtexturePool *tp, int id, const NVNtexture *t, const NVNtextureView *v) { (void)tp; ANDROID_DRAIN(); mtl_reg_tex(id, (const tex_t *)t, (const view_t *)v); }
++NVN(nvnTexturePoolRegisterTexture, void, const NVNtexturePool *tp, int id, const NVNtexture *t, const NVNtextureView *v) { ANDROID_DRAIN(); mtl_reg_tex_pool(tp, id, (const tex_t *)t, (const view_t *)v); }
+ NVN(nvnSamplerPoolInitialize, NVNboolean, NVNsamplerPool *sp, const NVNmemoryPool *p, ptrdiff_t off, int n) {
+     ANDROID_DRAIN();
+     *(dpool_t *)sp = (dpool_t){(const pool_t *)p, off, n}; OLOG("SamplerPool n=%d", n); return 1;
+@@ -1088,6 +1088,7 @@ NVN(nvnCommandBufferSetShaderScratchMemory, void, NVNcommandBuffer *c, const NVN
+        (uint64_t)offset>pool->size || size>pool->size-(uint64_t)offset)
+         die("Android NVN invalid shader scratch range offset=%lld size=%llu",(long long)offset,(unsigned long long)size);
+     *REC(c,OP_SHADER_SCRATCH,p_bind_buf)=(p_bind_buf){.addr=(uint64_t)(uintptr_t)(pool->mem+offset),.size=size};
++    static _Atomic int scratch_logged;if(atomic_fetch_add(&scratch_logged,1)<8)
+     LOG("ANDROID_NVN_SHADER_SCRATCH offset=%lld bytes=%llu SPIRV_private_memory=true",(long long)offset,(unsigned long long)size);
+ }
+ #endif
+@@ -1806,3 +1807,7 @@ NVN(nvnQueuePresentTexture, void, NVNqueue *q, NVNwindow *w, int idx) {
+     prev_out = now_ns();
+ }
+ #endif /* Apple submit/window diagnostics retained; Android uses native platform implementation. */
++
++#ifdef __ANDROID__
++#include "hades_nvn.inc"   // Hades II additions (see file header)
++#endif

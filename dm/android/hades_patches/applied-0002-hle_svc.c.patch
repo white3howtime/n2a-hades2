@@ -1,0 +1,33 @@
+diff --git a/dm/host/hle_svc.c b/dm/host/hle_svc.c
+index ae0bd5e..e744381 100644
+--- a/dm/host/hle_svc.c
++++ b/dm/host/hle_svc.c
+@@ -101,9 +101,11 @@ static size_t image_bytes(void) { size_t n = 0; for (int i = 0; i < g_nmod; i++)
+ // Free space / largest allocatable block call the allocator's own queries (sdk+0x2f9d78 / +0x2f9dbc, which go through CentralHeap::Query and take their own lock) and may only be called on a guest thread.
+ // The values read are kept in g_gheap_last, and the red report on a null allocation carries the last readout directly (the allocator is not entered again at that moment). Units: total / free in MB, largest block in KB
+ static module_t *mod_named(const char *n) { for (int i = 0; i < g_nmod; i++) if (!strcmp(g_mod[i].name, n)) return &g_mod[i]; return NULL; }
++#define HADES_SDK_BUILD "190030518b5d64e5d87b84bc54661af9"   // Hades II v9 sdk：StandardAllocator::Allocate 在 sdk+0x1376b0 | Hades II v9 sdk: StandardAllocator::Allocate is at sdk+0x1376b0
+ static _Atomic unsigned long long g_gheap_last[3];
+ int dm_guest_heap_stat(unsigned long long *total_mb, unsigned long long *free_mb, unsigned long long *maxblk_kb) {
+     module_t *mm = mod_named("main"), *ms = mod_named("sdk"); if (!mm || !ms || !g_heap_cur) return 0;
++    if (!strcmp(ms->build_id, HADES_SDK_BUILD)) return 0;   // 下面的偏移都是暗黑2 的；哈迪斯2 还没有对应读数 | the offsets below are Diablo II's; Hades II has no matching readout yet
+     uint8_t *al = mm->base + 0x32137a0; if (!al[0]) return 0;   // 首字节 = 已初始化（sdk+0x2f9898 写） | First byte = initialized (written by sdk+0x2f9898)
+     uint64_t fr = ((uint64_t (*)(void *))(ms->base + 0x2f9d78))(al), mx = ((uint64_t (*)(void *))(ms->base + 0x2f9dbc))(al);
+     *total_mb = g_heap_cur >> 20; *free_mb = fr >> 20; *maxblk_kb = mx >> 10;
+@@ -113,7 +115,7 @@ int dm_guest_heap_stat(unsigned long long *total_mb, unsigned long long *free_mb
+ // The last main-heap readout (total MB, free MB, largest allocatable block KB; all 0 if never read). Callable from any thread - does not enter the allocator (the iOS shell uses it on the main thread for the memory-warning log line)
+ void dm_guest_heap_last(unsigned long long v[3]) { for (int i = 0; i < 3; i++) v[i] = atomic_load(&g_gheap_last[i]); }
+ HLE_FORCE("_ZN2nn3mem17StandardAllocator8AllocateEmm", "照原版分配，只在返回空时报红（原版调用方多处不判空）", void *, hle_stdalloc_allocate, void *self, size_t size, size_t align) {
+-    static void *(*orig)(void *, size_t, size_t); if (!orig) { module_t *ms = mod_named("sdk"); orig = (void *(*)(void *, size_t, size_t))(ms->base + 0x2f9974); }
++    static void *(*orig)(void *, size_t, size_t); if (!orig) { module_t *ms = mod_named("sdk"); orig = (void *(*)(void *, size_t, size_t))(ms->base + (!strcmp(ms->build_id, HADES_SDK_BUILD) ? 0x1376b0 : 0x2f9974)); }
+     void *p = orig(self, size, align);
+     if (!p && size) { static _Atomic int n; if (atomic_fetch_add(&n, 1) < 8) LOG("【红】游戏堆分配返回空：申请 %zu 字节（对齐 %zu），分配器 %p；上次读数 主堆 %llu MB、余量 %llu MB、最大可分配块 %llu KB", size, align, self,
+         (unsigned long long)g_gheap_last[0], (unsigned long long)g_gheap_last[1], (unsigned long long)g_gheap_last[2]); }
+@@ -346,6 +348,7 @@ uint64_t svc_dispatch(int num, uint64_t *regs, uint64_t orig_addr) {
+             break;
+         case I_IsApplication: v = 1; break;
+         case I_UserExcAddr: v = 0; break;
++        case 28: v = 0; break;   // AliasRegionExtraSize (firmware 18+): Hades II's SDK asks in nnosInitialize; no extra alias region
+ #ifdef __ANDROID__
+         default: die("Android unsupported GetInfo id=%llu handle=%#llx subid=%#llx", id, regs[2], regs[3]);
+ #else

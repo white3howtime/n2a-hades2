@@ -1,0 +1,13 @@
+diff --git a/dm/gfx/nvn/nvn_obj.h b/dm/gfx/nvn/nvn_obj.h
+index 4818a5c..bf7671e 100644
+--- a/dm/gfx/nvn/nvn_obj.h
++++ b/dm/gfx/nvn/nvn_obj.h
+@@ -216,6 +216,8 @@ void mtl_read_texels(const tex_t *t, unsigned level, unsigned layer0, const NVNc
+ // 描述符池登记（贴图号 / 采样器号 → 对象快照）、程序释放
+ // Descriptor pool registration (texture ID / sampler ID → object snapshot), program release
+ void mtl_reg_tex(int id, const tex_t *t, const view_t *v);
++void mtl_reg_tex_pool(const void *pool, int id, const tex_t *t, const view_t *v);   // Hades II：按描述符池登记 | Hades II: register per descriptor pool
++void mtl_set_tex_pool_n_pool(const void *pool, int n);
+ void mtl_reg_samp(int id, const samp_par *p);
+ void mtl_prog_release(prog_t *p);
+ // 新序号（> 0，全局递增）

@@ -1,0 +1,43 @@
+diff --git a/dm/tools/patch_nso.py b/dm/tools/patch_nso.py
+index 5c268ad..815524b 100644
+--- a/dm/tools/patch_nso.py
++++ b/dm/tools/patch_nso.py
+@@ -148,6 +148,13 @@ CUTS = {'db0507f36b84200ac05f75d76ed5026f': [
+     (0x5d8400, 'b004fe97', '611100d4', '进局给尸体取落点调用点 bl 0x5596c0 → svc #0x8b：同上，尸体与人取同一个点（hle.h SVC_HOST_JOIN_CORPSE）', '仅宿主'),
+     (0x11f0914, '77100094', '811000d4', '段读取 0x11f07d0 逐块解码 bl 0x11f4af0(ctx, 块, 长度) → svc #0x84：同上（hle.h SVC_HOST_GRANNY_B）', '仅宿主'),
+ ]}
++# ---- Hades II (0100A00019DE0000, update v589824) ----
++# EOS (Epic Online Services) is only used for cloud saves. Its initializer main+0x38b940 returns false when the byte *(main+0xd3c5e0) is 0; this forces that
++# path so nifm::Initialize, the EOSSDK NRO load (an AbortImpl on failure) and every EOS_* import are never reached. All EOS entry points are guarded by the
++# manager state byte / platform handle and return false while the manager is uninitialized.
++CUTS['8ce1ac48e9fa74479051f3520e632df4'] = [
++    (0x38b964, '280d0034', '69000014', 'EOS init: cbz w8,#0x38bb08 -> b #0x38bb08 (always report "EOS unavailable"; cloud saves off, local saves unaffected)', '全'),
++]
+ # ---- 已登记观测门：{NSO 构建号: [(偏移, 编号, 原指令字, 理由)]}。编号与宿主 hle.h 的 OBS_* 一致；
+ # 原指令须与位置无关（不得 PC 相对 / 分支 / 涉 x18·tpidr），离线断言；宿主未挂回调时门块进出一次即返回 ----
+ # ---- Registered observation gates: {NSO build ID: [(offset, number, original instruction word, reason)]}. Numbers match OBS_* in the host's hle.h;
+@@ -511,6 +518,14 @@ def emit_gate_call():
+         (since r24 plan C it was borrowed and not returned, the x29 the host got was the slot offset from the key page, and skill icons fell back to placeholder text)."""
+     emit(MRS_TPIDRRO(30)); emit_slot_addr(30, 29, 'KGATE'); emit(LDRX(30, 30)); emit(LDRX(29, 31))
+ 
++def site_mov_sp_x18(ins):
++    """alloca epilogue `mov sp, x18`: sp = logical x18 (thread slot). Scratch x16/x17 (IP0/IP1) are dead at this point in compiler output."""
++    start = here()
++    emit(MRS_TPIDRRO(17)); emit_slot_addr(17, 16, 'K18'); emit(LDRX(16, 17))
++    emit(ADDI(31, 16, 0))
++    emit(B(here(), ins.address + 4))
++    return start
++
+ def site_gate(ins, kind, arg):
+     """svc / mrs cntpct_el0 → 宿主门。门地址取自线程槽 KGATE；门按返回点（本块 ldp 的地址）查 gates.tsv。 | svc / mrs cntpct_el0 → host gate. The gate address is taken from thread slot KGATE; the gate looks up gates.tsv by return point (the address of this block's ldp)."""
+     start = here()
+@@ -696,7 +711,8 @@ for a in sorted(kinds):
+     ins = dis(struct.unpack_from('<I', IMG, a)[0], a)
+     if k == 'x18':
+         m = ins.mnemonic
+-        if m == 'br': st = site_br(ins, *jumps[a]); stat('br')
++        if m == 'mov' and ins.op_str == 'sp, x18': st = site_mov_sp_x18(ins); stat('mov_sp_x18')
++        elif m == 'br': st = site_br(ins, *jumps[a]); stat('br')
+         elif m in ('cbz', 'cbnz', 'tbz', 'tbnz'): st = site_cond(ins); stat('cond')
+         elif m in ('adr', 'adrp'): st = site_pcrel(ins); stat('pcrel')
+         elif m in ('blr', 'ret', 'b', 'bl') or (m == 'ldr' and '[' not in ins.op_str): raise RuntimeError(f'{a:x} {m} {ins.op_str}')
