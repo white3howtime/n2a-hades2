@@ -38,7 +38,7 @@ final class RendererSettingsDialog {
         this.appliedScale=appliedScale;this.scaleRequest=scaleRequest;qualityStore=new RenderQualityStore(activity);
         LinearLayout body=new LinearLayout(activity);body.setOrientation(LinearLayout.VERTICAL);body.setPadding(dp(18),dp(8),dp(18),dp(12));
         text(body,"屏幕",18);
-        Switch fillScreen=option(body,"铺满全屏","游戏画面固定为 16:9；开启后拉伸铺满整个屏幕（宽屏手机上画面会略微变宽），关闭则保持比例并留黑边。");
+        Switch fillScreen=option(body,"铺满全屏","开启后游戏按手机屏幕比例原生渲染，不拉伸画面（切换后需重启游戏生效）；关闭则为 16:9 并留黑边。");
         fillScreen.setChecked(ScreenMode.fill(activity));
         fillScreen.setOnCheckedChangeListener((v,on)->{ScreenMode.setFill(activity,on);View vp=activity.findViewById(android.R.id.content);if(vp!=null)relayout(vp);});
         text(body,"画质模式",18);

@@ -23,7 +23,7 @@ The upstream README and design documents are kept under [`docs/upstream/`](docs/
 - **Hades-specific Switch-service HLE** (`dm/android/hades_hle.c`, with a host-side test): `nn::ro` stubs, `nn::codec` (hardware Opus reported as unsupported so FMOD falls back to its software decoder), `nn::fs` directory counting, a handful of `svc` results, title ID registration. 48 forced overrides, 1386 host test checks.
 - **NVN → Vulkan additions** (`dm/gfx/nvn/hades_nvn.inc`, `nvn_vk.c`): `DrawElements`, viewport/depth ranges, integer clears, texture/sampler builder getters, BGRA8/BGR565/ASTC (all block sizes, native upload), linear (pitch) textures, per-pool texture descriptor tables, 32-bit integer vertex attributes fed to float shader inputs, and bounded vertex-buffer reads (the game binds vertex streams up to the end of an 8 MiB ring; reading only what a draw fetches took gameplay from ~29 to ~60 FPS).
 - **Phone-friendly touch controls** (`hades_pad.c`, `HadesPadView.java`): floating joystick on the left; Attack / Special / Cast / Dash / Interact / Call / Lock on the right; Menu / Info / Pause at the top; a menu mode with D-pad, Confirm, Back and page buttons. No console button names (ZL/ZR/L/R) in the UI.
-- **Full-screen display**: the game renders a fixed 16:9 image, so on wide phones it is stretched to the whole screen by default (and the touch controls use the full width); the system menu has a "fill screen" switch to go back to 16:9 with black bars.
+- **Native wide-screen rendering**: the game's hard-coded 1280×720 window size is rewritten at load time (only for the exact tested `main` build, guarded by instruction checks) to the phone's aspect ratio at 720 lines (e.g. 1562×720 on a 2640×1216 screen), so the image is rendered wide instead of stretched; touch controls use the full width. The system menu has a "fill screen" switch (needs a restart) to go back to 16:9 with black bars.
 - **Tooling** (`dm/tools/`, `scripts/`): RomFS image builder and verifier, shader-cache builder, resumable adb push of the game data into the app's private storage, Gradle-free debug APK assembly, build/run/smoke-test scripts.
 
 ### Verified on a real phone
@@ -33,6 +33,7 @@ Gameplay runs at about 60 FPS in the scenes tested (~640 draws per frame).
 
 ### Not done / not verified
 
+- Wide-screen mode: world and menus verified at 2.17:1; every HUD/dialog/boss scene at that ratio is not (UI layout is engine-driven). Ratios wider than ~3.5:1 are clamped.
 - Long play sessions (memory growth, stability over hours) and later biomes/bosses have not been tested; other NVN functions the game may call are still unimplemented and abort with `Android NVN unsupported function`.
 - In-game button prompts still show Switch glyphs (e.g. "R"), which map to the on-screen buttons described above.
 - Audio is wired (FMOD software Opus path, 48 kHz stereo) but has not been checked by ear.

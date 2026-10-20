@@ -1,5 +1,5 @@
 diff --git a/dm/android/src/org/d2r/binaryprobe/GameActivity.java b/dm/android/src/org/d2r/binaryprobe/GameActivity.java
-index c3bae83..612da35 100644
+index c3bae83..ea74629 100644
 --- a/dm/android/src/org/d2r/binaryprobe/GameActivity.java
 +++ b/dm/android/src/org/d2r/binaryprobe/GameActivity.java
 @@ -78,7 +78,7 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
@@ -11,7 +11,16 @@ index c3bae83..612da35 100644
      private final java.util.ArrayList<View> menuControls=new java.util.ArrayList<>();
      private boolean prepared, configured, surfaceReady, launched, resumed, failed;
      private long romfsBytes;
-@@ -143,24 +143,14 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
+@@ -121,6 +121,8 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
+         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN|View.SYSTEM_UI_FLAG_HIDE_NAVIGATION|
+             View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY|View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN|View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
++        // Let the picture extend under a display cutout (camera hole) so "fill screen" really fills it.
++        getWindow().getAttributes().layoutInDisplayCutoutMode=android.os.Build.VERSION.SDK_INT>=30?WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS:WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+         FrameLayout root=new FrameLayout(this);root.setBackgroundColor(0xff0d0d0f);
+         GameViewport viewport=new GameViewport(this);
+         root.addView(viewport,new FrameLayout.LayoutParams(-1,-1,Gravity.CENTER));
+@@ -143,24 +145,14 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
              if(rc!=0)fail(t("触摸输入不可用"),new Exception(t("错误 ")+rc));return true;
          });
          viewport.addView(game,new FrameLayout.LayoutParams(-1,-1));
@@ -39,7 +48,7 @@ index c3bae83..612da35 100644
          Button system=new Button(this);systemControl=system;
          refreshSystemLabel();system.setTextColor(TouchControlsView.TEXT);system.setTextSize(16);
          system.setBackgroundTintList(ColorStateList.valueOf(TouchControlsView.INK));
-@@ -408,64 +398,40 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
+@@ -408,64 +400,40 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
              if(!temporary.renameTo(target))throw new java.io.IOException(t("不能保存管线缓存"));
          }
      }
@@ -129,7 +138,19 @@ index c3bae83..612da35 100644
      }
      private boolean installerReceiptCovers(long bytes,String hash){
          try{
-@@ -544,19 +510,12 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
+@@ -504,6 +472,11 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
+             // Recover an interrupted main quality-setting write before native reads it.
+             try{new RenderQualityStore(this).read();}
+             catch(java.io.IOException error){fail(strings.chinese()?"无法读取画质设置":"Could not read graphics quality settings",error);return;}
++            try{ // wide native render: tell the native side the real screen size (read once at start)
++                android.graphics.Rect r=getWindowManager().getMaximumWindowMetrics().getBounds();
++                int w=Math.max(r.width(),r.height()),h=Math.min(r.width(),r.height());
++                if(ScreenMode.fill(this))android.system.Os.setenv("HADES_SCREEN",w+" "+h,true);else android.system.Os.unsetenv("HADES_SCREEN");
++            }catch(Exception ignored){}
+             int rc=nativeConfigure(getFilesDir().getAbsolutePath(),getResources().getConfiguration().getLocales().get(0).toLanguageTag(),
+             getPackageManager().hasSystemFeature(android.content.pm.PackageManager.FEATURE_TOUCHSCREEN));
+             if(rc==0)rc=nativeContentProfile(romfsBytes,addOnIndices);
+@@ -544,19 +517,12 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
              JSONObject scene=s.optJSONObject("scene");inGame=scene!=null&&scene.optInt("game",0)!=0;
              long frame=s.getLong("presented_frames");
              if(frame>0&&driverPending){driverPending=false;GraphicsDriverSettings.confirmStarted(GameActivity.this);}

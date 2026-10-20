@@ -1,0 +1,23 @@
+diff --git a/dm/android/src/org/d2r/binaryprobe/RendererSettingsDialog.java b/dm/android/src/org/d2r/binaryprobe/RendererSettingsDialog.java
+index 0ce394f..ff22eb1 100644
+--- a/dm/android/src/org/d2r/binaryprobe/RendererSettingsDialog.java
++++ b/dm/android/src/org/d2r/binaryprobe/RendererSettingsDialog.java
+@@ -37,6 +37,10 @@ final class RendererSettingsDialog {
+         this.activity=activity;this.applied=applied;store=new RendererOptionsStore(activity);
+         this.appliedScale=appliedScale;this.scaleRequest=scaleRequest;qualityStore=new RenderQualityStore(activity);
+         LinearLayout body=new LinearLayout(activity);body.setOrientation(LinearLayout.VERTICAL);body.setPadding(dp(18),dp(8),dp(18),dp(12));
++        text(body,"屏幕",18);
++        Switch fillScreen=option(body,"铺满全屏","开启后游戏按手机屏幕比例原生渲染，不拉伸画面（切换后需重启游戏生效）；关闭则为 16:9 并留黑边。");
++        fillScreen.setChecked(ScreenMode.fill(activity));
++        fillScreen.setOnCheckedChangeListener((v,on)->{ScreenMode.setFill(activity,on);View vp=activity.findViewById(android.R.id.content);if(vp!=null)relayout(vp);});
+         text(body,"画质模式",18);
+         RadioGroup quality=new RadioGroup(activity);quality.setOrientation(LinearLayout.VERTICAL);body.addView(quality);
+         automatic=qualityOption(quality,RenderQuality.description(RenderQuality.AUTO));
+@@ -69,6 +73,7 @@ final class RendererSettingsDialog {
+         panel.dialog.getWindow().setLayout(Math.min(panel.dp(600),activity.getResources().getDisplayMetrics().widthPixels-panel.dp(36)),WindowManager.LayoutParams.WRAP_CONTENT);
+         panel.dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(TouchControlsView.TEXT);panel.automatic.requestFocus();return panel;
+     }
++    private static void relayout(View v){v.requestLayout();if(v instanceof android.view.ViewGroup){android.view.ViewGroup g=(android.view.ViewGroup)v;for(int i=0;i<g.getChildCount();i++)relayout(g.getChildAt(i));}}
+     private int dp(int n){return Math.round(n*activity.getResources().getDisplayMetrics().density);}
+     private TextView text(LinearLayout body,String value,int size){
+         TextView view=new TextView(activity);view.setText(value);view.setTextColor(TouchControlsView.TEXT);view.setTextSize(size);

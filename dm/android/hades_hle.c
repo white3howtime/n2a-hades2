@@ -32,6 +32,32 @@ __attribute__((constructor)) static void hades_title_setup(void) {
     dm_android_loader_probe_allow_unused_force();
 }
 
+/* ---------- native wide-screen render ----------
+ * The app object's initial window size is hard-coded in main (mov x8,#0x500 ; movk x8,#0x2d0,lsl#32 = 1280x720 at +0x2a6080).
+ * With HADES_SCREEN="W H" (set by Java) the width immediate becomes the phone's aspect at 720 lines, so the game renders wide.
+ * Only for the exact tested main build and only if both instructions match. */
+#include <stdlib.h>
+#include <string.h>
+#include <sys/mman.h>
+#include <unistd.h>
+void hades_apply_screen(void) {
+    const char *e = getenv("HADES_SCREEN"); int w = 0, h = 0;
+    if (!e || sscanf(e, "%d %d", &w, &h) != 2 || w <= 0 || h <= 0) return;
+    module_t *m = &g_mod[0];
+    if (strcmp(m->name, "main") || strcmp(m->build_id, "8ce1ac48e9fa74479051f3520e632df4")) return;
+    uint32_t *ins = (uint32_t *)(m->base + 0x2a6080);
+    if (ins[0] != 0xD2800008u + (1280u << 5) || ins[1] != 0xF2C00008u + (720u << 5)) { LOG("HADES_SCREEN: main code mismatch, skipped"); return; }
+    int nw = (int)(720.0 * w / h + 0.5) & ~1;
+    if (nw < 1280) nw = 1280;
+    if (nw > 2560) nw = 2560;   /* shortcut: 2560 keeps the immediate and RT sizes sane; wider than ~3.5:1 is clamped */
+    long pg = sysconf(_SC_PAGESIZE); uintptr_t a = (uintptr_t)ins & ~(uintptr_t)(pg - 1);
+    if (mprotect((void *)a, pg, PROT_READ | PROT_WRITE | PROT_EXEC)) { LOG("HADES_SCREEN: mprotect failed"); return; }
+    ins[0] = 0xD2800008u + ((uint32_t)nw << 5);
+    __builtin___clear_cache((char *)ins, (char *)(ins + 2));
+    mprotect((void *)a, pg, PROT_READ | PROT_EXEC);
+    LOG("HADES_SCREEN: render size %dx720 (screen %dx%d)", nw, w, h);
+}
+
 /* ---------- nn::ro: only the EOSSDK NRO uses it, and EOS is cut; registration of game.nrr must not reach ldr:ro ---------- */
 HLE_FORCE("_ZN2nn2ro10InitializeEv", "ldr:ro service; nothing is ever loaded", Result, h_ro_Initialize, void) { return RES_OK; }
 HLE_FORCE("_ZN2nn2ro8FinalizeEv", "ldr:ro service", void, h_ro_Finalize, void) {}

@@ -472,6 +472,11 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
             // Recover an interrupted main quality-setting write before native reads it.
             try{new RenderQualityStore(this).read();}
             catch(java.io.IOException error){fail(strings.chinese()?"无法读取画质设置":"Could not read graphics quality settings",error);return;}
+            try{ // wide native render: tell the native side the real screen size (read once at start)
+                android.graphics.Rect r=getWindowManager().getMaximumWindowMetrics().getBounds();
+                int w=Math.max(r.width(),r.height()),h=Math.min(r.width(),r.height());
+                if(ScreenMode.fill(this))android.system.Os.setenv("HADES_SCREEN",w+" "+h,true);else android.system.Os.unsetenv("HADES_SCREEN");
+            }catch(Exception ignored){}
             int rc=nativeConfigure(getFilesDir().getAbsolutePath(),getResources().getConfiguration().getLocales().get(0).toLanguageTag(),
             getPackageManager().hasSystemFeature(android.content.pm.PackageManager.FEATURE_TOUCHSCREEN));
             if(rc==0)rc=nativeContentProfile(romfsBytes,addOnIndices);
