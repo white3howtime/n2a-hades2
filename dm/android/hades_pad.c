@@ -7,27 +7,29 @@ enum { ROLE_NONE = 0, ROLE_STICK, ROLE_BTN };
 enum { M_PLAY = 1, M_MENU = 2, M_BOTH = 3 };
 enum { AN_R, AN_L, AN_T, AN_C };   /* right-bottom cluster, left-bottom cluster, top-right corner, top centre */
 
+/* One layer only: the menu-mode controls (D-pad, OK, Back, pages, mode switch) have modes = 0, so they are never shown or hit.
+ * Menus use the stick, Cast (A) confirms and Dash (B) goes back. */
 static const struct { const char *name; unsigned modes; int anchor; float dx, dy, r; int aim; } LAY[HP_NBTN] = {
-    [HP_ATTACK]    = { "ATTACK",    M_PLAY, AN_R,    0,   0, 46, 1 },
-    [HP_SPECIAL]   = { "SPECIAL",   M_PLAY, AN_R,  -80, -18, 36, 1 },
-    [HP_CAST]      = { "CAST",      M_PLAY, AN_R,  -34, -90, 36, 1 },
-    [HP_DASH]      = { "DASH",      M_PLAY, AN_R,   60, -70, 36, 0 },
-    [HP_INTERACT]  = { "INTERACT",  M_PLAY, AN_R,  -92,  56, 32, 0 },
-    [HP_CALL]      = { "CALL",      M_PLAY, AN_R,   36,-146, 28, 0 },
-    [HP_LOCK]      = { "LOCK",      M_PLAY, AN_R,   94,   6, 26, 0 },
-    [HP_PAUSE]     = { "PAUSE",     M_BOTH, AN_T,  -36,  36, 22, 0 },
-    [HP_INFO]      = { "INFO",      M_BOTH, AN_T,  -92,  36, 22, 0 },
-    [HP_MODE]      = { "MODE",      M_BOTH, AN_T, -148,  36, 22, 0 },
-    [HP_DPAD_UP]   = { "DPAD_UP",   M_MENU, AN_L,    0, -58, 30, 0 },
-    [HP_DPAD_DOWN] = { "DPAD_DOWN", M_MENU, AN_L,    0,  58, 30, 0 },
-    [HP_DPAD_LEFT] = { "DPAD_LEFT", M_MENU, AN_L,  -58,   0, 30, 0 },
-    [HP_DPAD_RIGHT]= { "DPAD_RIGHT",M_MENU, AN_L,   58,   0, 30, 0 },
-    [HP_CONFIRM]   = { "CONFIRM",   M_MENU, AN_R,   58,   0, 30, 0 },
-    [HP_BACK]      = { "BACK",      M_MENU, AN_R,    0,  58, 30, 0 },
-    [HP_ALT1]      = { "ALT1",      M_MENU, AN_R,    0, -58, 30, 0 },
-    [HP_ALT2]      = { "ALT2",      M_MENU, AN_R,  -58,   0, 30, 0 },
-    [HP_PAGE_PREV] = { "PAGE_PREV", M_MENU, AN_C,  -52,  36, 24, 0 },
-    [HP_PAGE_NEXT] = { "PAGE_NEXT", M_MENU, AN_C,   52,  36, 24, 0 },
+    [HP_ATTACK]    = { "ATTACK",    M_PLAY, AN_R,    0,   0, 30, 1 },
+    [HP_SPECIAL]   = { "SPECIAL",   M_PLAY, AN_R,  -64,  -4, 24, 1 },
+    [HP_CAST]      = { "CAST",      M_PLAY, AN_R,  -32, -62, 24, 1 },
+    [HP_DASH]      = { "DASH",      M_PLAY, AN_R,   36, -56, 24, 0 },
+    [HP_INTERACT]  = { "INTERACT",  M_PLAY, AN_R,  -70,  50, 22, 0 },
+    [HP_CALL]      = { "CALL",      M_PLAY, AN_R,   34,-108, 20, 0 },
+    [HP_LOCK]      = { "LOCK",      M_PLAY, AN_R,   66,  12, 20, 0 },
+    [HP_PAUSE]     = { "PAUSE",     M_PLAY, AN_T,  -28,  28, 17, 0 },
+    [HP_INFO]      = { "INFO",      M_PLAY, AN_T,  -68,  28, 17, 0 },
+    [HP_MODE]      = { "MODE",      0, AN_T, -108,  28, 17, 0 },
+    [HP_DPAD_UP]   = { "DPAD_UP",   0, AN_L,    0, -48, 24, 0 },
+    [HP_DPAD_DOWN] = { "DPAD_DOWN", 0, AN_L,    0,  48, 24, 0 },
+    [HP_DPAD_LEFT] = { "DPAD_LEFT", 0, AN_L,  -48,   0, 24, 0 },
+    [HP_DPAD_RIGHT]= { "DPAD_RIGHT",0, AN_L,   48,   0, 24, 0 },
+    [HP_CONFIRM]   = { "CONFIRM",   0, AN_R,   48,   0, 24, 0 },
+    [HP_BACK]      = { "BACK",      0, AN_R,    0,  48, 24, 0 },
+    [HP_ALT1]      = { "ALT1",      0, AN_R,    0, -48, 24, 0 },
+    [HP_ALT2]      = { "ALT2",      0, AN_R,  -48,   0, 24, 0 },
+    [HP_PAGE_PREV] = { "PAGE_PREV", 0, AN_C,  -44,  28, 18, 0 },
+    [HP_PAGE_NEXT] = { "PAGE_NEXT", 0, AN_C,   44,  28, 18, 0 },
 };
 
 static const struct { const char *en, *zh; } LABEL[HP_NBTN] = {
@@ -42,7 +44,7 @@ static const struct { const char *en, *zh; } LABEL[HP_NBTN] = {
     [HP_PAGE_PREV] = {"Prev","上页"}, [HP_PAGE_NEXT] = {"Next","下页"},
 };
 
-static const float STICK_R_DP = 56.f, STICK_DEAD = .10f, AIM_THR_DP = 10.f, AIM_FULL_DP = 50.f, HIT_SLOP = 1.15f;
+static const float STICK_R_DP = 56.f, STICK_DEAD = .10f, AIM_THR_DP = 10.f, AIM_FULL_DP = 50.f, HIT_SLOP = 1.3f;
 
 const char *hp_label(hp_btn b, int lang) { return b >= 0 && b < HP_NBTN ? (lang ? LABEL[b].zh : LABEL[b].en) : ""; }
 
@@ -119,8 +121,8 @@ int hp_config_parse(hp_config *c, const char *text) {
 static void center_of(const hp_state *s, int b, float *x, float *y) {
     float u = s->density, ax, ay;
     switch (LAY[b].anchor) {
-    case AN_R: ax = s->w - s->inset_r - 120 * u; ay = s->h - s->inset_b - 100 * u; break;
-    case AN_L: ax = s->inset_l + 110 * u;        ay = s->h - s->inset_b - 100 * u; break;
+    case AN_R: ax = s->w - s->inset_r - 92 * u;  ay = s->h - s->inset_b - 84 * u; break;
+    case AN_L: ax = s->inset_l + 80 * u;         ay = s->h - s->inset_b - 84 * u; break;
     case AN_T: ax = s->w - s->inset_r;           ay = 0; break;
     default:   ax = s->w * .5f;                  ay = 0; break;
     }

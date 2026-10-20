@@ -3,6 +3,7 @@ package org.hades2.mobile;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.Rect;
 import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
@@ -107,13 +108,10 @@ public final class HadesPadView extends View {
         for (int i = 0; i < n; i++) {
             int btn = (int) vis[1 + 5 * i]; float cx = vis[2 + 5 * i], cy = vis[3 + 5 * i], r = vis[4 + 5 * i];
             boolean pressed = vis[5 + 5 * i] != 0;
-            fill.setColor(pressed ? 0x99FFFFFF : 0x40000000); c.drawCircle(cx, cy, r, fill);
-            line.setStrokeWidth(2 * dp); line.setColor(0x99FFFFFF); c.drawCircle(cx, cy, r, line);
-            String s = btn == HP_MODE ? (menu ? (lang == 1 ? "游戏" : "Play") : nativeLabel(btn, lang)) : nativeLabel(btn, lang);
-            text.setColor(pressed ? 0xFF000000 : 0xFFFFFFFF);
-            text.setTextSize(Math.min(r * .5f, 18 * dp));
-            text.getTextBounds(s, 0, s.length(), bounds);
-            c.drawText(s, cx, cy - bounds.exactCenterY(), text);
+            fill.setColor(pressed ? 0x99FFFFFF : 0x26000000); c.drawCircle(cx, cy, r, fill);
+            line.setStrokeWidth(1.5f * dp); line.setColor(pressed ? 0xCCFFFFFF : 0x66FFFFFF); c.drawCircle(cx, cy, r, line);
+            line.setColor(pressed ? 0xFF000000 : 0xE0FFFFFF);
+            icon(c, btn, cx, cy, r, menu);
         }
         if (vis[t] != 0) {
             float r = vis[t + 5];
@@ -124,5 +122,68 @@ public final class HadesPadView extends View {
         if (vis[t + 6] != 0) {
             line.setColor(0xCCFFFFFF); c.drawLine(vis[t + 7], vis[t + 8], vis[t + 9], vis[t + 10], line);
         }
+    }
+
+    /** Vector icons instead of text: keeps the buttons small and language-free. Order matches hp_btn in hades_pad.h. */
+    private void icon(Canvas c, int btn, float x, float y, float r, boolean menu) {
+        float k = r * .5f, dp = getResources().getDisplayMetrics().density;
+        line.setStrokeWidth(Math.max(2f * dp, r * .12f)); line.setStrokeCap(Paint.Cap.ROUND); line.setStrokeJoin(Paint.Join.ROUND);
+        line.setStyle(Paint.Style.STROKE);
+        Path p = new Path();
+        switch (btn) {
+            case 0: // attack: sword
+                c.drawLine(x - k, y + k, x + k, y - k, line);
+                c.drawLine(x - k * .15f, y - k * .15f - k * .45f, x + k * .45f + k * .15f, y + k * .15f, line);
+                c.drawLine(x - k * .95f, y + k * .95f, x - k * 1.15f, y + k * 1.15f, line); break;
+            case 1: // special: four-point star
+                p.moveTo(x, y - k * 1.2f); p.quadTo(x, y, x + k * 1.2f, y); p.quadTo(x, y, x, y + k * 1.2f);
+                p.quadTo(x, y, x - k * 1.2f, y); p.quadTo(x, y, x, y - k * 1.2f); c.drawPath(p, line); break;
+            case 2: // cast: ring with a dot
+                c.drawCircle(x, y, k, line); c.drawCircle(x, y, k * .25f, line); break;
+            case 3: // dash: double chevron
+                for (int i = 0; i < 2; i++) { float o = (i - .5f) * k * 1.1f; p.moveTo(x + o - k * .45f, y - k * .7f); p.lineTo(x + o + k * .35f, y); p.lineTo(x + o - k * .45f, y + k * .7f); }
+                c.drawPath(p, line); break;
+            case 4: // interact: speech bubble with dots
+                c.drawRoundRect(x - k * 1.1f, y - k * .8f, x + k * 1.1f, y + k * .6f, k * .4f, k * .4f, line);
+                for (int i = -1; i <= 1; i++) c.drawPoint(x + i * k * .5f, y - k * .1f, line);
+                break;
+            case 5: // call: horn
+                p.moveTo(x - k, y - k * .3f); p.lineTo(x - k * .3f, y - k * .3f); p.lineTo(x + k * .6f, y - k * .9f); p.lineTo(x + k * .6f, y + k * .9f);
+                p.lineTo(x - k * .3f, y + k * .3f); p.lineTo(x - k, y + k * .3f); p.close(); c.drawPath(p, line); break;
+            case 6: // lock: crosshair
+                c.drawCircle(x, y, k * .6f, line);
+                c.drawLine(x, y - k * 1.1f, x, y - k * .6f, line); c.drawLine(x, y + k * .6f, x, y + k * 1.1f, line);
+                c.drawLine(x - k * 1.1f, y, x - k * .6f, y, line); c.drawLine(x + k * .6f, y, x + k * 1.1f, y, line); break;
+            case 7: // pause: two bars
+                c.drawLine(x - k * .4f, y - k * .7f, x - k * .4f, y + k * .7f, line); c.drawLine(x + k * .4f, y - k * .7f, x + k * .4f, y + k * .7f, line); break;
+            case 8: // info: i
+                c.drawPoint(x, y - k * .8f, line); c.drawLine(x, y - k * .2f, x, y + k * .8f, line); break;
+            case 9: // menu: three lines (play triangle when already in the menu)
+                if (menu) { p.moveTo(x - k * .5f, y - k * .8f); p.lineTo(x + k * .8f, y); p.lineTo(x - k * .5f, y + k * .8f); p.close(); c.drawPath(p, line); }
+                else for (int i = -1; i <= 1; i++) c.drawLine(x - k * .8f, y + i * k * .6f, x + k * .8f, y + i * k * .6f, line);
+                break;
+            case 10: arrow(c, x, y, k, 0, -1); break;
+            case 11: arrow(c, x, y, k, 0, 1); break;
+            case 12: arrow(c, x, y, k, -1, 0); break;
+            case 13: arrow(c, x, y, k, 1, 0); break;
+            case 14: // confirm: check
+                p.moveTo(x - k * .8f, y); p.lineTo(x - k * .2f, y + k * .6f); p.lineTo(x + k * .9f, y - k * .6f); c.drawPath(p, line); break;
+            case 15: // back: left arrow with a tail
+                c.drawLine(x + k * .8f, y, x - k * .8f, y, line); c.drawLine(x - k * .8f, y, x - k * .2f, y - k * .6f, line); c.drawLine(x - k * .8f, y, x - k * .2f, y + k * .6f, line); break;
+            case 16: case 17: // option 1/2: one or two dots
+                if (btn == 16) c.drawPoint(x, y, line); else { c.drawPoint(x - k * .4f, y, line); c.drawPoint(x + k * .4f, y, line); } break;
+            case 18: case 19: { // page: double chevron
+                float d = btn == 18 ? -1 : 1;
+                for (int i = 0; i < 2; i++) { float o = (i - .5f) * k * .9f * d; p.moveTo(x + o - d * k * .3f, y - k * .6f); p.lineTo(x + o + d * k * .3f, y); p.lineTo(x + o - d * k * .3f, y + k * .6f); }
+                c.drawPath(p, line); break; }
+        }
+    }
+
+    private void arrow(Canvas c, float x, float y, float k, float dx, float dy) {
+        Path p = new Path(); float px = -dy, py = dx;   // perpendicular
+        p.moveTo(x + dx * k * .7f, y + dy * k * .7f);
+        p.lineTo(x - dx * k * .5f + px * k * .8f, y - dy * k * .5f + py * k * .8f);
+        p.lineTo(x - dx * k * .5f - px * k * .8f, y - dy * k * .5f - py * k * .8f); p.close();
+        fill.setColor(line.getColor()); c.drawPath(p, fill);
     }
 }

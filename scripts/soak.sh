@@ -4,10 +4,11 @@
 # Coordinates are landscape pixels of a 2640x1216 screen (joystick area left, buttons right); adjust the variables for other phones.
 . "$(dirname "$0")/env.sh"
 MIN=${1:-6}
-CAST="2100 552"; ATTACK="2218 865"; DASH="2429 620"; SPECIAL="1940 803"   # fill-screen layout (default)
+CAST="2205 706"; ATTACK="2316 924"; DASH="2442 726"; SPECIAL="2095 911"   # fill-screen layout (default)
 mkdir -p "$N2A_LOCAL/logs"; : > "$N2A_LOCAL/logs/soak-mem.txt"
 "$(dirname "$0")/run_game.sh" 5 >/dev/null
 for i in 1 2 3; do "$ADB" shell "input swipe $CAST $CAST 150"; sleep 6; done   # title -> slot -> load
+sleep 6; for i in 1 2 3; do "$ADB" shell "input swipe 450 800 450 560 6000"; done   # walk out of the Crossroads into the first combat room
 end=$((SECONDS + MIN*60)); n=0
 while [ $SECONDS -lt $end ]; do
   [ -z "$("$ADB" shell pidof $PKG | tr -d '\r')" ] && { echo "PROCESS DIED at ${SECONDS}s"; break; }
