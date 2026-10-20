@@ -951,6 +951,10 @@ static void chunk_control_poll(void) {
         getpid(),(unsigned long long)numbers[0],(int)numbers[1],(unsigned long long)now);
 }
 int dm_vk_attachment_applied_flags(void) {return atomic_load(&attachment_applied);}
+/* System-info overlay: GPU time of the recorded work, from the per-chunk timestamp queries; only measured while the meter is on. */
+static _Atomic int gpu_meter_on;static _Atomic uint64_t gpu_busy_total_ns;
+void dm_vk_gpu_meter(int on) {atomic_store(&gpu_meter_on,on);}
+uint64_t dm_vk_gpu_busy_ns(void) {return atomic_load(&gpu_busy_total_ns);}
 /* Diagnostic A/B control, latched at submit begin. Call between QueueFinish
  * boundaries to compare the same workload within one process. */
 void dm_vk_attachment_config(int flags) { atomic_store(&attachment_override,flags<0?-1:flags&3); }
@@ -1190,7 +1194,7 @@ static void submission_pools_create(VkSubmission *sub) {
     CHECK(vkCreateQueryPool(G.device,&q,NULL,&sub->occlusion));q.queryType=VK_QUERY_TYPE_TIMESTAMP;
     CHECK(vkCreateQueryPool(G.device,&q,NULL,&sub->timestamps));
     if(G.pass_timing){q.queryCount=1024;CHECK(vkCreateQueryPool(G.device,&q,NULL,&sub->pass_ts));}
-    if(G.profile_detail){q.queryCount=128;CHECK(vkCreateQueryPool(G.device,&q,NULL,&sub->chunk_ts));}
+    {q.queryCount=128;CHECK(vkCreateQueryPool(G.device,&q,NULL,&sub->chunk_ts_pool));sub->chunk_ts=G.profile_detail?sub->chunk_ts_pool:VK_NULL_HANDLE;}
     if(G.pass_stats){q.queryType=VK_QUERY_TYPE_PIPELINE_STATISTICS;q.queryCount=512;q.pipelineStatistics=PASS_STATS_FLAGS;CHECK(vkCreateQueryPool(G.device,&q,NULL,&sub->pass_stats));}
     VkDescriptorPoolSize sizes[]={{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,16384},{VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,8192},
       {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,16384},{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,4096},{VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,16384},
@@ -1377,6 +1381,7 @@ static void sub_begin_ctx(VkSubmission *ctx) {
     if(G.render_slots_n>1){VkMemoryBarrier mb={.sType=VK_STRUCTURE_TYPE_MEMORY_BARRIER,.srcAccessMask=VK_ACCESS_MEMORY_WRITE_BIT,.dstAccessMask=VK_ACCESS_MEMORY_READ_BIT|VK_ACCESS_MEMORY_WRITE_BIT};
         vkCmdPipelineBarrier(S.command,VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,0,1,&mb,0,NULL,0,NULL);}
     nvn_vk_command_state_reset(&S.command_state);
+    S.chunk_ts=(G.profile_detail||atomic_load(&gpu_meter_on))?S.chunk_ts_pool:VK_NULL_HANDLE;   /* chosen per submission so toggling mid-run is safe */
     if(S.chunk_ts){vkCmdResetQueryPool(S.command,S.chunk_ts,0,128);S.nchunk_ts=0;chunk_ts_write(0);}
     if(!G.enable_query_reset_range){query_reset(S.occlusion,0,LIMIT_WRITES);query_reset(S.timestamps,0,LIMIT_WRITES);S.occlusion_reset_count=S.timestamp_reset_count=LIMIT_WRITES;}
     if(S.pass_ts){if(!G.enable_query_reset_range){query_reset(S.pass_ts,0,1024);S.pass_reset_count=1024;}S.npt=0;S.pt_open=0;}
@@ -1451,6 +1456,7 @@ static uint64_t commit_after_gpu(CommitInfo ci,uint64_t waited) {
             uint64_t mask=G.timestamp_bits>=64?~0ULL:((1ULL<<G.timestamp_bits)-1);double period=G.properties.limits.timestampPeriod;uint64_t busy=0,gap=0;
             if(G.profile_frames==30&&si==0)for(uint32_t i=0;i+1<(S.nchunk_ts&~1u);i+=2)fprintf(stderr,"[nvn-vulkan] CHUNK_TIME i=%u dur_us=%.0f gap_us=%.0f passes=%llu draws=%llu\n",i/2,(double)(((ts[i+1]-ts[i])&mask)*period/1000.0),i?(double)(((ts[i]-ts[i-1])&mask)*period/1000.0):0.0,(unsigned long long)(S.chunk_pass0[i+1]-S.chunk_pass0[i]),(unsigned long long)(S.chunk_draw0[i+1]-S.chunk_draw0[i]));
             for(uint32_t i=0;i+1<(S.nchunk_ts&~1u);i+=2){busy+=(ts[i+1]-ts[i])&mask;if(i>=2){uint64_t g=(ts[i]-ts[i-1])&mask;if(g<(1ULL<<40))gap+=g;}}
+            atomic_fetch_add(&gpu_busy_total_ns,(uint64_t)(busy*period));
             G.gts_busy[si]+=(uint64_t)(busy*period);G.gts_gap[si]+=(uint64_t)(gap*period);G.gts_span[si]+=(uint64_t)(((ts[(S.nchunk_ts&~1u)-1]-ts[0])&mask)*period);G.gts_chunks[si]+=S.nchunk_ts/2;}}
     G.seg_wait_ns[S.profile_segment]+=waited;
     submission_gpu_done(&S);

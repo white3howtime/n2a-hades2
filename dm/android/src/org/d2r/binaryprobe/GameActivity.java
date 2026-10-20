@@ -48,6 +48,8 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
     private static native String nativeStatus();
     private static native int nativeRenderScale(float scale);
     private static native int nativeRenderScaleAuto();
+    private static native void nativeGpuMeter(boolean on);
+    private static native long nativeGpuBusyNs();
     private static native void nativeControllerCancelActions(long buttons,int lx,int ly,int rx,int ry);
     private static native String nativeSaveFailure();
     private static native String nativeKeyboardRequest();
@@ -78,6 +80,12 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
     private AndroidUpdateChecker updateChecker;
     private final GameDisplayMetrics.FpsSampler fpsSampler=new GameDisplayMetrics.FpsSampler();
     private double displayedFps=Double.NaN;
+    private SystemInfo sysInfo;private boolean sysInfoOn;
+    /** System-info overlay (top left): off by default, toggled from the system menu. */
+    void setSystemInfo(boolean on){
+        sysInfoOn=on;ScreenMode.setInfo(this,on);fps.setVisibility(on?View.VISIBLE:View.GONE);
+        if(sysInfo!=null)sysInfo.reset();fpsSampler.reset();displayedFps=Double.NaN;nativeGpuMeter(on);
+    }
     private org.hades2.mobile.HadesPadView touchControls;
     private final java.util.ArrayList<View> menuControls=new java.util.ArrayList<>();
     private boolean prepared, configured, surfaceReady, launched, resumed, failed;
@@ -167,11 +175,12 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
         });
         viewport.addView(system,systemParams);
         fps=new TextView(this);fps.setText("FPS —");fps.setTextColor(TouchControlsView.TEXT);
-        fps.setTextSize(12);fps.setTypeface(Typeface.MONOSPACE);fps.setGravity(Gravity.CENTER);
-        fps.setMinWidth(dp(84));fps.setPadding(dp(8),dp(4),dp(8),dp(4));fps.setBackgroundColor(TouchControlsView.INK);
+        fps.setTextSize(11);fps.setTypeface(Typeface.MONOSPACE);fps.setGravity(Gravity.START);
+        fps.setPadding(dp(8),dp(4),dp(8),dp(4));fps.setBackgroundColor(0x99000000);
         fps.setClickable(false);fps.setFocusable(false);
-        FrameLayout.LayoutParams fpsParams=new FrameLayout.LayoutParams(-2,-2,Gravity.TOP|Gravity.CENTER_HORIZONTAL);
-        fpsParams.topMargin=dp(10);viewport.addView(fps,fpsParams);
+        FrameLayout.LayoutParams fpsParams=new FrameLayout.LayoutParams(-2,-2,Gravity.TOP|Gravity.LEFT);
+        fpsParams.topMargin=dp(10);fpsParams.leftMargin=dp(48);viewport.addView(fps,fpsParams);
+        sysInfo=new SystemInfo(this);setSystemInfo(ScreenMode.info(this));
         status=new TextView(this);status.setTextColor(0xffe9d9ba);status.setTextSize(18);
         status.setGravity(Gravity.CENTER);status.setBackgroundColor(0xe60d0d0f);
         status.setPadding(dp(28),dp(18),dp(28),dp(18));status.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
@@ -519,11 +528,11 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
             long frame=s.getLong("presented_frames");
             if(frame>0&&driverPending){driverPending=false;GraphicsDriverSettings.confirmStarted(GameActivity.this);}
             if(frame>0)status.setVisibility(View.GONE);else status.setText(t(s.getString("phase")));
-            if(resumed){double current=fpsSampler.sample(frame,SystemClock.elapsedRealtime());
-                if(!Double.isNaN(current)&&Double.compare(current,displayedFps)!=0){
-                    fps.setText(String.format(getResources().getConfiguration().getLocales().get(0),"FPS %.1f",current));
-                    displayedFps=current;
-                }}
+            if(resumed&&sysInfoOn){double current=fpsSampler.sample(frame,SystemClock.elapsedRealtime());
+                if(!Double.isNaN(current))displayedFps=current;
+                JSONObject gm=s.optJSONObject("gpu_memory");
+                String info=sysInfo.sample(displayedFps,nativeGpuBusyNs(),gm!=null&&gm.optBoolean("available")?gm.optLong("allocation_bytes",-1):-1);
+                if(!info.contentEquals(fps.getText()))fps.setText(info);}
             String request=nativeKeyboardRequest();if(request!=null&&resumed&&!destroyed){JSONObject k=new JSONObject(request);long id=k.getLong("id");
                 if(keyboardDialog==null||keyboardId!=id){closeRendererSettings();if(keyboardDialog!=null)keyboardDialog.dismiss();keyboardId=id;actionButtons=0;nativeActions(0,0,0,0,0);touchControls.cancel();
                     keyboardDialog=ShellTextInputDialog.show(GameActivity.this,k.getString("title"),k.getString("subtitle"),k.getString("hint"),k.getString("initial"),k.getInt("min"),k.getInt("max"),strings,(ok,text)->{nativeKeyboardResult(id,ok,text);keyboardDialog=null;});}}
@@ -539,7 +548,7 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
         if(touchControls!=null)touchControls.cancel();
     }}
     @Override public void onResume(){super.onResume();resumed=true;fpsSampler.reset();nativeKeyboardReady(true);nativeUpdateForeground();if(configured)nativeAudioInterruption(false);if(configured)nativeLifecycle(2);configureAndStart();}
-    @Override public void onPause(){clearControllers();closeRendererSettings();if(configured){nativeLifecycle(0);nativeLifecycle(1);}nativeKeyboardReady(false);if(keyboardDialog!=null){keyboardDialog.dismiss();keyboardDialog=null;}resumed=false;fpsSampler.reset();displayedFps=Double.NaN;if(fps!=null)fps.setText("FPS —");inputReady=false;actionButtons=0;controllerButtons=0;if(touchControls!=null)touchControls.cancel();if(configured){nativeActions(0,0,0,0,0);nativeControllerCancel(0);}if(configured&&surfaceReady)publishSurface();super.onPause();}
+    @Override public void onPause(){clearControllers();closeRendererSettings();if(configured){nativeLifecycle(0);nativeLifecycle(1);}nativeKeyboardReady(false);if(keyboardDialog!=null){keyboardDialog.dismiss();keyboardDialog=null;}resumed=false;fpsSampler.reset();displayedFps=Double.NaN;if(sysInfo!=null)sysInfo.reset();inputReady=false;actionButtons=0;controllerButtons=0;if(touchControls!=null)touchControls.cancel();if(configured){nativeActions(0,0,0,0,0);nativeControllerCancel(0);}if(configured&&surfaceReady)publishSurface();super.onPause();}
     @Override public void surfaceCreated(SurfaceHolder holder){if(!destroyed)surfaceReady=true;}
     @Override public void surfaceChanged(SurfaceHolder holder,int format,int w,int h){if(destroyed)return;width=w;height=h;surfaceReady=true;configureAndStart();}
     @Override public void surfaceDestroyed(SurfaceHolder holder){if(destroyed)return;surfaceReady=false;if(configured)publishSurface();}

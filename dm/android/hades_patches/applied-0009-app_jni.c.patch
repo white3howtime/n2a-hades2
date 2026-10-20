@@ -1,8 +1,17 @@
 diff --git a/dm/android/app_jni.c b/dm/android/app_jni.c
-index 63f8370..318ead8 100644
+index 63f8370..eba23bd 100644
 --- a/dm/android/app_jni.c
 +++ b/dm/android/app_jni.c
-@@ -551,7 +551,8 @@ static void *game_thread(void *unused) {
+@@ -36,6 +36,8 @@ extern void dm_vk_set_shader_root(const char *);
+ extern void dm_vk_set_window(void *);
+ extern void dm_vk_set_display_hz(int);
+ extern int dm_vk_attachment_applied_flags(void);
++extern void dm_vk_gpu_meter(int on);
++extern uint64_t dm_vk_gpu_busy_ns(void);
+ extern void dm_gfx_suspend(int);
+ extern void dm_audio_suspend(int);
+ extern void dm_focus_set(int);
+@@ -551,7 +553,8 @@ static void *game_thread(void *unused) {
      if ((error=dm_android_platform_update_window(&w))) die("Android initial window state error=%d",error);
      dm_android_service_register(DM_ANDROID_SERVICE_FS,dm_android_fs_initialize,NULL);
      phase_set("正在装载游戏");
@@ -12,3 +21,16 @@ index 63f8370..318ead8 100644
      /* D2R's binding observer is an optional, build-gated title adapter.  It
       * only installs when the loaded artifact advertises OBS_BINDING_GETTER
       * and the exact module size/identity checks pass; unreviewed titles do not
+@@ -992,6 +995,12 @@ JNIEXPORT jint JNICALL Java_org_d2r_binaryprobe_GameActivity_nativeRenderScale(J
+     (void)env;(void)cls;
+     return atomic_load(&configured)?dm_android_render_scale_request(scale):EAGAIN;
+ }
++JNIEXPORT void JNICALL Java_org_d2r_binaryprobe_GameActivity_nativeGpuMeter(JNIEnv *env,jclass cls,jboolean on) {
++    (void)env;(void)cls;dm_vk_gpu_meter(on?1:0);
++}
++JNIEXPORT jlong JNICALL Java_org_d2r_binaryprobe_GameActivity_nativeGpuBusyNs(JNIEnv *env,jclass cls) {
++    (void)env;(void)cls;return (jlong)dm_vk_gpu_busy_ns();
++}
+ JNIEXPORT jint JNICALL Java_org_d2r_binaryprobe_GameActivity_nativeRenderScaleAuto(
+         JNIEnv *env,jclass cls) {
+     (void)env;(void)cls;

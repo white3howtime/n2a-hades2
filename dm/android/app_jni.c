@@ -36,6 +36,8 @@ extern void dm_vk_set_shader_root(const char *);
 extern void dm_vk_set_window(void *);
 extern void dm_vk_set_display_hz(int);
 extern int dm_vk_attachment_applied_flags(void);
+extern void dm_vk_gpu_meter(int on);
+extern uint64_t dm_vk_gpu_busy_ns(void);
 extern void dm_gfx_suspend(int);
 extern void dm_audio_suspend(int);
 extern void dm_focus_set(int);
@@ -992,6 +994,12 @@ JNIEXPORT jstring JNICALL Java_org_d2r_binaryprobe_GameActivity_nativeStatus(JNI
 JNIEXPORT jint JNICALL Java_org_d2r_binaryprobe_GameActivity_nativeRenderScale(JNIEnv *env,jclass cls,jfloat scale) {
     (void)env;(void)cls;
     return atomic_load(&configured)?dm_android_render_scale_request(scale):EAGAIN;
+}
+JNIEXPORT void JNICALL Java_org_d2r_binaryprobe_GameActivity_nativeGpuMeter(JNIEnv *env,jclass cls,jboolean on) {
+    (void)env;(void)cls;dm_vk_gpu_meter(on?1:0);
+}
+JNIEXPORT jlong JNICALL Java_org_d2r_binaryprobe_GameActivity_nativeGpuBusyNs(JNIEnv *env,jclass cls) {
+    (void)env;(void)cls;return (jlong)dm_vk_gpu_busy_ns();
 }
 JNIEXPORT jint JNICALL Java_org_d2r_binaryprobe_GameActivity_nativeRenderScaleAuto(
         JNIEnv *env,jclass cls) {

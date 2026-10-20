@@ -41,6 +41,10 @@ final class RendererSettingsDialog {
         Switch fillScreen=option(body,"铺满全屏","开启后游戏按手机屏幕比例原生渲染，不拉伸画面（切换后需重启游戏生效）；关闭则为 16:9 并留黑边。");
         fillScreen.setChecked(ScreenMode.fill(activity));
         fillScreen.setOnCheckedChangeListener((v,on)->{ScreenMode.setFill(activity,on);View vp=activity.findViewById(android.R.id.content);if(vp!=null)relayout(vp);});
+        text(body,"系统信息",18);
+        Switch info=option(body,"显示系统信息","在屏幕左上角显示帧率、CPU、GPU 和内存占用。CPU 为本进程占全部核心的比例，另给最忙线程；GPU 是按渲染耗时估算的占用，开启时才会统计。");
+        info.setChecked(ScreenMode.info(activity));
+        info.setOnCheckedChangeListener((v,on)->((GameActivity)activity).setSystemInfo(on));
         text(body,"画质模式",18);
         RadioGroup quality=new RadioGroup(activity);quality.setOrientation(LinearLayout.VERTICAL);body.addView(quality);
         automatic=qualityOption(quality,RenderQuality.description(RenderQuality.AUTO));

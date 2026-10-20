@@ -1,8 +1,17 @@
 diff --git a/dm/android/src/org/d2r/binaryprobe/GameActivity.java b/dm/android/src/org/d2r/binaryprobe/GameActivity.java
-index c3bae83..ec59169 100644
+index c3bae83..2bdb805 100644
 --- a/dm/android/src/org/d2r/binaryprobe/GameActivity.java
 +++ b/dm/android/src/org/d2r/binaryprobe/GameActivity.java
-@@ -70,7 +70,7 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
+@@ -48,6 +48,8 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
+     private static native String nativeStatus();
+     private static native int nativeRenderScale(float scale);
+     private static native int nativeRenderScaleAuto();
++    private static native void nativeGpuMeter(boolean on);
++    private static native long nativeGpuBusyNs();
+     private static native void nativeControllerCancelActions(long buttons,int lx,int ly,int rx,int ry);
+     private static native String nativeSaveFailure();
+     private static native String nativeKeyboardRequest();
+@@ -70,7 +72,7 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
      private SurfaceView game;
      private TextView status,fps;
      private TextView modeControl;
@@ -11,16 +20,22 @@ index c3bae83..ec59169 100644
      private RendererSettingsDialog rendererSettings;
      private int appliedRendererFlags=RendererOptions.DEFAULT_FLAGS;
      private float appliedRenderScale=RenderQuality.AUTO;
-@@ -78,7 +78,7 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
+@@ -78,7 +80,13 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
      private AndroidUpdateChecker updateChecker;
      private final GameDisplayMetrics.FpsSampler fpsSampler=new GameDisplayMetrics.FpsSampler();
      private double displayedFps=Double.NaN;
 -    private TouchControlsView touchControls;
++    private SystemInfo sysInfo;private boolean sysInfoOn;
++    /** System-info overlay (top left): off by default, toggled from the system menu. */
++    void setSystemInfo(boolean on){
++        sysInfoOn=on;ScreenMode.setInfo(this,on);fps.setVisibility(on?View.VISIBLE:View.GONE);
++        if(sysInfo!=null)sysInfo.reset();fpsSampler.reset();displayedFps=Double.NaN;nativeGpuMeter(on);
++    }
 +    private org.hades2.mobile.HadesPadView touchControls;
      private final java.util.ArrayList<View> menuControls=new java.util.ArrayList<>();
      private boolean prepared, configured, surfaceReady, launched, resumed, failed;
      private long romfsBytes;
-@@ -121,6 +121,9 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
+@@ -121,6 +129,9 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
          getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
          getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN|View.SYSTEM_UI_FLAG_HIDE_NAVIGATION|
              View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY|View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN|View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
@@ -30,7 +45,7 @@ index c3bae83..ec59169 100644
          FrameLayout root=new FrameLayout(this);root.setBackgroundColor(0xff0d0d0f);
          GameViewport viewport=new GameViewport(this);
          root.addView(viewport,new FrameLayout.LayoutParams(-1,-1,Gravity.CENTER));
-@@ -143,29 +146,18 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
+@@ -143,29 +154,18 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
              if(rc!=0)fail(t("触摸输入不可用"),new Exception(t("错误 ")+rc));return true;
          });
          viewport.addView(game,new FrameLayout.LayoutParams(-1,-1));
@@ -67,7 +82,24 @@ index c3bae83..ec59169 100644
          system.setOnClickListener(v -> {
              if(!configured||failed||rendererSettings!=null||keyboardDialog!=null||saveFailureDialog!=null)return;
              actionButtons=0;if(inputReady)nativeActions(0,0,0,0,0);touchControls.cancel();
-@@ -192,7 +184,7 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
+@@ -175,11 +175,12 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
+         });
+         viewport.addView(system,systemParams);
+         fps=new TextView(this);fps.setText("FPS —");fps.setTextColor(TouchControlsView.TEXT);
+-        fps.setTextSize(12);fps.setTypeface(Typeface.MONOSPACE);fps.setGravity(Gravity.CENTER);
+-        fps.setMinWidth(dp(84));fps.setPadding(dp(8),dp(4),dp(8),dp(4));fps.setBackgroundColor(TouchControlsView.INK);
++        fps.setTextSize(11);fps.setTypeface(Typeface.MONOSPACE);fps.setGravity(Gravity.START);
++        fps.setPadding(dp(8),dp(4),dp(8),dp(4));fps.setBackgroundColor(0x99000000);
+         fps.setClickable(false);fps.setFocusable(false);
+-        FrameLayout.LayoutParams fpsParams=new FrameLayout.LayoutParams(-2,-2,Gravity.TOP|Gravity.CENTER_HORIZONTAL);
+-        fpsParams.topMargin=dp(10);viewport.addView(fps,fpsParams);
++        FrameLayout.LayoutParams fpsParams=new FrameLayout.LayoutParams(-2,-2,Gravity.TOP|Gravity.LEFT);
++        fpsParams.topMargin=dp(10);fpsParams.leftMargin=dp(48);viewport.addView(fps,fpsParams);
++        sysInfo=new SystemInfo(this);setSystemInfo(ScreenMode.info(this));
+         status=new TextView(this);status.setTextColor(0xffe9d9ba);status.setTextSize(18);
+         status.setGravity(Gravity.CENTER);status.setBackgroundColor(0xe60d0d0f);
+         status.setPadding(dp(28),dp(18),dp(28),dp(18));status.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
+@@ -192,7 +193,7 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
      }
      private String t(String text){return strings.text(text);}
      private void refreshSystemLabel(){
@@ -76,7 +108,7 @@ index c3bae83..ec59169 100644
      }
      private void refreshFrontendStrings(){
          refreshSystemLabel();
-@@ -408,64 +400,40 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
+@@ -408,64 +409,40 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
              if(!temporary.renameTo(target))throw new java.io.IOException(t("不能保存管线缓存"));
          }
      }
@@ -166,7 +198,7 @@ index c3bae83..ec59169 100644
      }
      private boolean installerReceiptCovers(long bytes,String hash){
          try{
-@@ -504,6 +472,12 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
+@@ -504,6 +481,12 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
              // Recover an interrupted main quality-setting write before native reads it.
              try{new RenderQualityStore(this).read();}
              catch(java.io.IOException error){fail(strings.chinese()?"无法读取画质设置":"Could not read graphics quality settings",error);return;}
@@ -179,23 +211,37 @@ index c3bae83..ec59169 100644
              int rc=nativeConfigure(getFilesDir().getAbsolutePath(),getResources().getConfiguration().getLocales().get(0).toLanguageTag(),
              getPackageManager().hasSystemFeature(android.content.pm.PackageManager.FEATURE_TOUCHSCREEN));
              if(rc==0)rc=nativeContentProfile(romfsBytes,addOnIndices);
-@@ -544,19 +518,12 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
+@@ -544,19 +527,12 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
              JSONObject scene=s.optJSONObject("scene");inGame=scene!=null&&scene.optInt("game",0)!=0;
              long frame=s.getLong("presented_frames");
              if(frame>0&&driverPending){driverPending=false;GraphicsDriverSettings.confirmStarted(GameActivity.this);}
 -            if(frame>0&&touchControls!=null&&touchControls.refreshLanguage())refreshFrontendStrings();
              if(frame>0)status.setVisibility(View.GONE);else status.setText(t(s.getString("phase")));
-             if(resumed){double current=fpsSampler.sample(frame,SystemClock.elapsedRealtime());
-                 if(!Double.isNaN(current)&&Double.compare(current,displayedFps)!=0){
-                     fps.setText(String.format(getResources().getConfiguration().getLocales().get(0),"FPS %.1f",current));
-                     displayedFps=current;
-                 }}
+-            if(resumed){double current=fpsSampler.sample(frame,SystemClock.elapsedRealtime());
+-                if(!Double.isNaN(current)&&Double.compare(current,displayedFps)!=0){
+-                    fps.setText(String.format(getResources().getConfiguration().getLocales().get(0),"FPS %.1f",current));
+-                    displayedFps=current;
+-                }}
 -            /* The native title adapter publishes the same state contract used
 -             * by the iOS touch overlay.  Pull it at the UI cadence so target
 -             * visibility (navigation/panels/belt/held item) follows the game
 -             * without making JNI calls from MotionEvent dispatch. */
 -            if(touchControls!=null){int[] ts=nativeTouchGameState();if(ts!=null&&ts.length>=10)
 -                touchControls.setGameState(ts[0]!=0,ts[1],ts[2],ts[3]!=0,ts[4]!=0,ts[5],ts[6]!=0,ts[7],ts[8],ts[9]);}
++            if(resumed&&sysInfoOn){double current=fpsSampler.sample(frame,SystemClock.elapsedRealtime());
++                if(!Double.isNaN(current))displayedFps=current;
++                JSONObject gm=s.optJSONObject("gpu_memory");
++                String info=sysInfo.sample(displayedFps,nativeGpuBusyNs(),gm!=null&&gm.optBoolean("available")?gm.optLong("allocation_bytes",-1):-1);
++                if(!info.contentEquals(fps.getText()))fps.setText(info);}
              String request=nativeKeyboardRequest();if(request!=null&&resumed&&!destroyed){JSONObject k=new JSONObject(request);long id=k.getLong("id");
                  if(keyboardDialog==null||keyboardId!=id){closeRendererSettings();if(keyboardDialog!=null)keyboardDialog.dismiss();keyboardId=id;actionButtons=0;nativeActions(0,0,0,0,0);touchControls.cancel();
                      keyboardDialog=ShellTextInputDialog.show(GameActivity.this,k.getString("title"),k.getString("subtitle"),k.getString("hint"),k.getString("initial"),k.getInt("min"),k.getInt("max"),strings,(ok,text)->{nativeKeyboardResult(id,ok,text);keyboardDialog=null;});}}
+@@ -572,7 +548,7 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
+         if(touchControls!=null)touchControls.cancel();
+     }}
+     @Override public void onResume(){super.onResume();resumed=true;fpsSampler.reset();nativeKeyboardReady(true);nativeUpdateForeground();if(configured)nativeAudioInterruption(false);if(configured)nativeLifecycle(2);configureAndStart();}
+-    @Override public void onPause(){clearControllers();closeRendererSettings();if(configured){nativeLifecycle(0);nativeLifecycle(1);}nativeKeyboardReady(false);if(keyboardDialog!=null){keyboardDialog.dismiss();keyboardDialog=null;}resumed=false;fpsSampler.reset();displayedFps=Double.NaN;if(fps!=null)fps.setText("FPS —");inputReady=false;actionButtons=0;controllerButtons=0;if(touchControls!=null)touchControls.cancel();if(configured){nativeActions(0,0,0,0,0);nativeControllerCancel(0);}if(configured&&surfaceReady)publishSurface();super.onPause();}
++    @Override public void onPause(){clearControllers();closeRendererSettings();if(configured){nativeLifecycle(0);nativeLifecycle(1);}nativeKeyboardReady(false);if(keyboardDialog!=null){keyboardDialog.dismiss();keyboardDialog=null;}resumed=false;fpsSampler.reset();displayedFps=Double.NaN;if(sysInfo!=null)sysInfo.reset();inputReady=false;actionButtons=0;controllerButtons=0;if(touchControls!=null)touchControls.cancel();if(configured){nativeActions(0,0,0,0,0);nativeControllerCancel(0);}if(configured&&surfaceReady)publishSurface();super.onPause();}
+     @Override public void surfaceCreated(SurfaceHolder holder){if(!destroyed)surfaceReady=true;}
+     @Override public void surfaceChanged(SurfaceHolder holder,int format,int w,int h){if(destroyed)return;width=w;height=h;surfaceReady=true;configureAndStart();}
+     @Override public void surfaceDestroyed(SurfaceHolder holder){if(destroyed)return;surfaceReady=false;if(configured)publishSurface();}

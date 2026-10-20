@@ -26,7 +26,7 @@ typedef struct {
     unsigned profile_segment; /* Captured at submit, before asynchronous completion. */
     VkDescriptorPool descriptors;
     VkFence gpu_fence;
-    VkQueryPool occlusion,timestamps,pass_ts,chunk_ts,pass_stats;
+    VkQueryPool occlusion,timestamps,pass_ts,chunk_ts,chunk_ts_pool,pass_stats;
     uint32_t nchunk_ts;
     uint64_t chunk_pass0[130],chunk_draw0[130];
     uint32_t nocc,ntime,active_occlusion;

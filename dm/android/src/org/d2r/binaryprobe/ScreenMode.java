@@ -9,6 +9,9 @@ final class ScreenMode {
     /** The mode the running game was started with; the render size is fixed at start, so the layout follows this, not the preference. */
     static boolean active=true;
     private ScreenMode(){}
+    /** System-info overlay (FPS / CPU / GPU / memory) in the top-left corner; off by default. */
+    static boolean info(Context c){return c.getSharedPreferences(PREFS,Context.MODE_PRIVATE).getBoolean("info",false);}
+    static void setInfo(Context c,boolean on){c.getSharedPreferences(PREFS,Context.MODE_PRIVATE).edit().putBoolean("info",on).apply();}
     /** true: stretch to the whole screen (default; the picture is widened on 19.5:9-type panels). false: keep 16:9 with black bars. */
     static boolean fill(Context c){return c.getSharedPreferences(PREFS,Context.MODE_PRIVATE).getBoolean(KEY,true);}
     static void setFill(Context c,boolean fill){
