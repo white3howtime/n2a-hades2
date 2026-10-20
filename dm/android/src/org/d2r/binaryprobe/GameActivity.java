@@ -405,64 +405,40 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
             if(!temporary.renameTo(target))throw new java.io.IOException(t("不能保存管线缓存"));
         }
     }
+    /** Hades II: modules, RomFS image and shader cache are staged by tools/hades2_push.py; hades-manifest.json binds them to one build. */
     private void prepareModules()throws Exception {
-        String json;
-        try(InputStream in=getAssets().open("module-manifest.json")){
-            java.io.ByteArrayOutputStream out=new java.io.ByteArrayOutputStream();byte[] b=new byte[4096];int n;
-            while((n=in.read(b))!=-1)out.write(b,0,n);json=new String(out.toByteArray(),StandardCharsets.UTF_8);
-        }
-        JSONObject manifest=new JSONObject(json);
-        JSONArray list=manifest.getJSONArray("files");File directory=new File(getFilesDir(),"d2r-mobile/modules");
-        if(!directory.isDirectory()&&!directory.mkdirs())throw new java.io.IOException(t("不能创建游戏目录"));
+        File base=new File(getFilesDir(),"d2r-mobile");
+        File manifestFile=new File(base,"hades-manifest.json");
+        if(!manifestFile.isFile())throw new java.io.IOException(t("缺少游戏清单"));
+        JSONObject manifest=new JSONObject(new String(java.nio.file.Files.readAllBytes(manifestFile.toPath()),StandardCharsets.UTF_8));
+        if(manifest.getInt("format")!=1||!"0100a00019de0000".equals(manifest.getString("title_id")))
+            throw new java.io.IOException(t("游戏资源版本不受支持"));
+        String build=manifest.getString("build_id");
+        if(!build.matches("[0-9a-f]{32}"))throw new java.io.IOException(t("游戏资源版本不受支持"));
+        File directory=new File(base,"modules");
         java.util.HashSet<String> remaining=new java.util.HashSet<>();
-        for(String module:new String[]{"main","sdk","subsdk0"})
+        for(String module:new String[]{"main","sdk"})
             for(String suffix:new String[]{"patched.bin","fixups.tsv","gates.tsv"})remaining.add(module+"."+suffix);
+        JSONArray list=manifest.getJSONArray("files");
         for(int i=0;i<list.length();i++){
             JSONObject entry=list.getJSONObject(i);String name=entry.getString("name"),hash=entry.getString("sha256");
-            if(!name.matches("(main|sdk|subsdk0)\\.(patched\\.bin|fixups\\.tsv|gates\\.tsv)"))throw new java.io.IOException(t("模块清单无效"));
-            if(!remaining.remove(name)||!hash.matches("[0-9a-f]{64}"))throw new java.io.IOException(t("模块清单重复或校验值无效"));
+            if(!name.matches("(main|sdk)\\.(patched\\.bin|fixups\\.tsv|gates\\.tsv)")||!hash.matches("[0-9a-f]{64}")||!remaining.remove(name))
+                throw new java.io.IOException(t("模块清单无效"));
             File target=new File(directory,name);
-            if(target.isFile()&&target.length()==entry.getLong("bytes")&&digest(target).equals(hash))continue;
-            File temporary=new File(directory,name+".new");
-            try(InputStream in=getAssets().open("modules/"+name);FileOutputStream out=new FileOutputStream(temporary)){
-                byte[] b=new byte[65536];int n;while((n=in.read(b))!=-1)out.write(b,0,n);out.getFD().sync();
-            }
-            if(temporary.length()!=entry.getLong("bytes")||!digest(temporary).equals(hash))throw new java.io.IOException(t("游戏模块校验失败"));
-            if(!temporary.renameTo(target))throw new java.io.IOException(t("不能保存游戏模块"));
+            if(!target.isFile()||target.length()!=entry.getLong("bytes")||!digest(target).equals(hash))
+                throw new java.io.IOException(t("游戏模块校验失败"));
         }
         if(!remaining.isEmpty())throw new java.io.IOException(t("游戏模块清单不完整"));
-        if(!new File(getFilesDir(),"game.romfs").isFile())throw new java.io.IOException(t("缺少原游戏资源"));
-        // The module manifest binds the exact game build and image; there is no size-only fallback.
-        if(!manifest.has("romfs"))throw new java.io.IOException(t("游戏资源版本不受支持"));
-        {
-            if(!"0100726014352000".equals(manifest.getString("title_id"))||
-                !"db0507f36b84200ac05f75d76ed5026f".equals(manifest.getString("build_id")))
-                throw new java.io.IOException(t("游戏资源版本不受支持"));
-            String expected="# BUILD_ID\t"+manifest.getString("build_id");
-            String fixups=new String(java.nio.file.Files.readAllBytes(new File(directory,"main.fixups.tsv").toPath()),StandardCharsets.UTF_8);
-            boolean matched=false;for(String line:fixups.split("\\r?\\n"))if(line.equals(expected))matched=true;
-            if(!matched)throw new java.io.IOException(t("游戏模块与资源版本不匹配"));
-            JSONObject resource=manifest.getJSONObject("romfs");romfsBytes=resource.getLong("bytes");
-            String hash=resource.getString("sha256");File romfs=new File(getFilesDir(),"game.romfs");
-            if(romfsBytes<0x50||romfs.length()!=romfsBytes||!hash.matches("[0-9a-f]{64}"))
-                throw new java.io.IOException(t("游戏资源校验失败"));
-            // The offline installer already hashed this image while importing it and recorded a receipt. Re-reading
-            // ~9 GB on every launch is only needed for an image that was placed without the installer.
-            if(!installerReceiptCovers(romfsBytes,hash)&&!digest(romfs).equals(hash))
-                throw new java.io.IOException(t("游戏资源校验失败"));
-            JSONArray addOns=manifest.optJSONArray("add_on_content_indices");
-            if(addOns!=null){
-                if(addOns.length()>64)throw new java.io.IOException(t("追加内容清单无效"));
-                addOnIndices=new int[addOns.length()];java.util.HashSet<Integer> seen=new java.util.HashSet<>();
-                for(int i=0;i<addOnIndices.length;i++){
-                    int value=addOns.getInt(i);if(value<0||!seen.add(value))throw new java.io.IOException(t("追加内容清单无效"));
-                    addOnIndices[i]=value;
-                }
-            }
-        }
-        if(!new File(getFilesDir(),"d2r-mobile/shaders/shader_index.bin").isFile())throw new java.io.IOException(t("缺少游戏图形缓存"));
+        String fixups=new String(java.nio.file.Files.readAllBytes(new File(directory,"main.fixups.tsv").toPath()),StandardCharsets.UTF_8);
+        boolean matched=false;for(String line:fixups.split("\\r?\\n"))if(line.equals("# BUILD_ID\t"+build))matched=true;
+        if(!matched)throw new java.io.IOException(t("游戏模块与资源版本不匹配"));
+        // The image was hashed when it was staged; re-reading ~5 GB on every launch is not worth it, so only its size is checked here.
+        File romfs=new File(getFilesDir(),"game.romfs");
+        romfsBytes=manifest.getJSONObject("romfs").getLong("bytes");
+        if(romfsBytes<0x50||!romfs.isFile()||romfs.length()!=romfsBytes)throw new java.io.IOException(t("游戏资源校验失败"));
+        addOnIndices=new int[0];
+        if(!new File(base,"shaders/shader_index.bin").isFile())throw new java.io.IOException(t("缺少游戏图形缓存"));
         installPipelineSeed();
-        installOverlay();
     }
     private boolean installerReceiptCovers(long bytes,String hash){
         try{

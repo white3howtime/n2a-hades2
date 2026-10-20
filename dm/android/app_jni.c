@@ -551,7 +551,7 @@ static void *game_thread(void *unused) {
     if ((error=dm_android_platform_update_window(&w))) die("Android initial window state error=%d",error);
     dm_android_service_register(DM_ANDROID_SERVICE_FS,dm_android_fs_initialize,NULL);
     phase_set("正在装载游戏");
-    const char *names[]={"main","sdk","subsdk0"}; load_modules(modules,names,3);
+    const char *names[]={"main","sdk"}; load_modules(modules,names,2);   /* Hades II: no subsdk0; the host does rtld's work */
     /* D2R's binding observer is an optional, build-gated title adapter.  It
      * only installs when the loaded artifact advertises OBS_BINDING_GETTER
      * and the exact module size/identity checks pass; unreviewed titles do not
