@@ -1110,6 +1110,27 @@ HLE_FORCE("_ZN2nn2fs13ReadDirectoryEPlPNS0_14DirectoryEntryENS0_15DirectoryHandl
     }
     *count = n; return RES_OK;
 }
+// Hades II: the number of entries a ReadDirectory loop would return for this handle's mode filter (position independent).
+// The non-snapshot case counts through a second DIR* so the game's own read position is left alone.
+HLE_FORCE("_ZN2nn2fs22GetDirectoryEntryCountEPlNS0_15DirectoryHandleE", "fsp-srv → readdir(3) on a private DIR*", Result, h_fs_GetDirectoryEntryCount, int64_t *out, uint64_t hh) {
+    if (out) *out = 0;
+    if (!hh || !out) return RES_FAIL;
+    PATH_LOCK(); dirh_t *h = (dirh_t *)hh; int64_t n = 0;
+    if (h->snap) {
+        for (int64_t i = 0; i < h->nsnap; i++) if (h->mode & (h->snap[i].type == ENT_DIR ? DIRMODE_DIR : DIRMODE_FILE)) n++;
+        *out = n; return RES_OK;
+    }
+    DIR *d = opendir(h->path); if (!d) return err_res("opendir", h->path);
+    struct dirent *e;
+    while ((e = readdir(d))) {
+        if (!strcmp(e->d_name, ".") || !strcmp(e->d_name, "..")) continue;
+        { size_t dl = strlen(e->d_name); if (dl > 6 && !strcmp(e->d_name + dl - 6, ".holes")) continue; }
+        char c[1280]; snprintf(c, sizeof c, "%s/%s", h->path, e->d_name);
+        struct stat st; if (stat(c, &st)) continue;
+        if (h->mode & (S_ISDIR(st.st_mode) ? DIRMODE_DIR : DIRMODE_FILE)) n++;
+    }
+    closedir(d); *out = n; return RES_OK;
+}
 HLE_FORCE("_ZN2nn2fs14CloseDirectoryENS0_15DirectoryHandleE", "fsp-srv → closedir(3)", void, h_fs_CloseDirectory, uint64_t hh) {
     if (!hh) return;   // 游戏在打开失败后也会关（句柄是 0）：原版无事可做 | The game also closes after a failed open (handle 0): nothing to do in the original either
 #ifdef __ANDROID__
