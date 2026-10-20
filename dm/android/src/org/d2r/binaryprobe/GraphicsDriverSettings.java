@@ -11,7 +11,7 @@ import java.io.IOException;
 final class GraphicsDriverSettings {
     private static final String PREFS="graphics-driver", KEY="selection", AUTO_FAILED="auto_turnip_failed", AUTO_STRIKES="auto_turnip_strikes";
     static String read(Context context) {
-        return GraphicsDriverPolicy.normalize(context.getSharedPreferences(PREFS,Context.MODE_PRIVATE).getString(KEY,GraphicsDriverPolicy.AUTO));
+        return GraphicsDriverPolicy.normalize(context.getSharedPreferences(PREFS,Context.MODE_PRIVATE).getString(KEY,GraphicsDriverPolicy.SYSTEM));   // Hades II build: no Turnip libraries are bundled, so never default to "auto" (it picks Turnip on Qualcomm)
     }
     static boolean save(Context context,String mode) {
         // Choosing a mode again (including auto) clears an earlier automatic fallback so the recommendation is retried.
