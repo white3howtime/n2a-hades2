@@ -3,3 +3,6 @@
 .iosdd_mac/
 .iosdd_*/
 .DS_Store
+
+# local-only workspace: game data, keys, build output, logs (never commit)
+.local/

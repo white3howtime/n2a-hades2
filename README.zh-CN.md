@@ -1,382 +1,86 @@
-# D2R Mobile
+# n2a-hades — 哈迪斯 II 安卓原生移植（无模拟器）
 
-**开源的《暗黑破坏神 II：狱火重生》术士君临 iOS / macOS 兼容层。** 把你自己购买的 Nintendo Switch 版游戏（含「术士君临」资料片）完整带到 iPhone、iPad 和 Mac 上：原版内核原生执行，整套操作为触屏重做，稳定 60 帧，一秒进局。现在也有原生的 macOS 版（第一版）：Apple 芯片的 Mac 上双击启动，键盘、鼠标、手柄都能用。Apple TV 4K（第三代 A15）有社区移植（开发者预览），只在作者的实机上到过职业选择画面，详见下面的设备表。
+[English](README.md)
 
-Android 支持仍处于实验阶段，验证范围单独列在下方。
+把 **Nintendo Switch 版**《哈迪斯 II》（title ID `0100A00019DE0000`，更新 v9）原生移植到安卓。
+Switch 二进制在构建期被改写，直接在手机 CPU 上运行；Switch 的系统服务和 NVN 图形接口则在 Android 与 Vulkan 之上重新实现。
+中间没有模拟器、没有 JIT、没有虚拟机。
 
-iOS 版已打磨到可以天天玩、从开荒一路玩到终局；Android 版仍处于开发阶段。
+> **本仓库只提供底层适配，不包含游戏本体，以后也不会包含。**
+> 仓库里没有任何游戏代码、资源、着色器、密钥或固件。你需要从自己拥有的 Switch 上导出游戏并自行准备文件
+> （见 [准备你自己的游戏文件](#准备你自己的游戏文件)）。本项目与 Supergiant Games、任天堂没有任何关联，也未获其认可。
 
-平台：Android（实验性，arm64-v8a、API 29+、Vulkan）· iPhone / iPad（iOS 26 起；iOS 18 – 25 用老接口版）· Mac（Apple 芯片，macOS 26 及以上；macOS 15 – 25 用老接口版）· Apple TV 4K（第三代 A15，社区移植，开发者预览）· 游戏版本：Switch 版「术士君临」1.0.34.0（对应 PC 版 3.3.94012）· 中文 / English · 许可证：MIT · **需要自备游戏文件**
+## 基于
 
-English: [README.md](README.md)
+本项目建立在 **[dodola/d2r-mobile](https://github.com/dodola/d2r-mobile)**（MIT 许可）之上，它是另一款 Switch 游戏的安卓/iOS 原生移植。
+它的 NSO 改写器、Switch 系统 HLE 层、NVN→Vulkan 层、着色器翻译流水线和 APK 工具是本项目得以成立的基础；上游完整提交历史保留在本仓库中。
+不得不修改的上游原文件，以相对上游提交 `62c6db8` 的补丁形式列在 [`dm/android/hades_patches/`](dm/android/hades_patches/README.md)。
+上游的 README 与设计文档保存在 [`docs/upstream/`](docs/upstream/)，上游许可证见 [`LICENSE`](LICENSE)。
 
-D2R Android 工作统一回归 `main`。离线生产安装链继续绑定 **91738**；**94012** 使用独立诊断包与显式启用、带版本检查的私有 adapter。实体手柄输入、事务存档和 iOS 触控/UI 桥的验证范围不同，具体见 [功能对齐记录](docs/ANDROID_IOS_PARITY.md) 与 [主线整合记录](docs/ANDROID_MAIN_INTEGRATION_2026-10-19.zh-CN.md)。本次整合版仍需原游戏验收，历史测试包的实游证据不直接覆盖整合版。
+## 已实现的内容
 
-《塞尔达传说 智慧的再现》移植已彻底停止，不再排期；相关 Android 应用入口、探针、profile 和移植工具均已移除。下方 Android 玩法和 FPS 数据只对应 D2R。
+- **针对哈迪斯 II 的 NSO 改写**（只用 `main` + `sdk`，不含 EOS/联网模块）：扩展了上游 `patch_nso.py`，处理本版本的 `mov sp, x18`（alloca）写法，并切除对 Epic Online Services 的依赖，游戏无需 EOS 即可启动并使用本地存档。
+- **哈迪斯专用的 Switch 服务 HLE**（`dm/android/hades_hle.c`，带宿主侧测试）：`nn::ro` 桩、`nn::codec`（硬件 Opus 报告为不支持，使 FMOD 回退到软件解码）、`nn::fs` 目录计数、若干 `svc` 返回值、title ID 注册。共 48 个强制覆盖，宿主测试 1386 项检查。
+- **NVN → Vulkan 补充**（`dm/gfx/nvn/hades_nvn.inc`、`nvn_vk.c`）：`DrawElements`、视口/深度范围、整数清除、纹理/采样器 builder 的 getter、BGRA8/BGR565/ASTC（全部块尺寸，原生上传）、线性（pitch）纹理、按池区分的纹理描述符表、把 32 位整数顶点属性当作浮点着色器输入，以及顶点缓冲读取范围收窄（游戏把顶点流绑定到 8 MiB 环形缓冲的末尾，只读每次绘制实际取用的部分后，战斗场景从约 29 FPS 提升到约 60 FPS）。
+- **适合手机的触控操作**（`hades_pad.c`、`HadesPadView.java`）：左侧浮动摇杆；右侧 攻击 / 特殊 / 施法 / 冲刺 / 互动 / 呼唤 / 锁定；顶部 菜单 / 信息 / 暂停；菜单模式下有方向键、确认、返回和翻页键。界面中不出现主机按键名（ZL/ZR/L/R）。
+- **工具**（`dm/tools/`、`scripts/`）：RomFS 镜像构建与校验、着色器缓存构建、可断点续传的 adb 推送（写入应用私有目录）、不依赖 Gradle 的 debug APK 打包、构建/运行/冒烟测试脚本。
 
-## Android 支持（实验性）
+### 真机已验证
 
-截至 **2026-10-15**，本分支已通过原生 ARM64 宿主与 Vulkan 实现的 NVN 图形接口，在 Android 真机上运行原版游戏。已验证选角、进入镇内、触屏操作、背包与选项菜单、基础近战、第一幕营地与荒地往返，以及存档退出后冷启动重入。
+启动 → 标题 → 新存档 → 据点 → 自由移动 → 过房间 → 战斗（受伤、特效、HUD）→ 死亡回据点 → 写入存档 → 重启应用 → 存档列表显示并可载入。
+在已测场景中约 60 FPS（每帧约 640 次绘制）。
 
-| 测试配置 | 观测性能 |
-|---|---|
-| ROD-W09、Mali-G610 MC6、render scale 1.0、单个已保存圣骑士的选角场景 | 1,200 帧平均 **24.08 FPS** |
-| 同一设备与比例，加载结束后镇内静止 | 900 帧平均 **28.56 FPS** |
-| PPG-AN00、Adreno 830、固定 Turnip sysmem 驱动、scale 1.0、已保存野蛮人的选角场景 | 28 个稳态窗口中位数 **30.004 FPS** |
-| 同一 Adreno 设备与配置，镇内静止 | 28 个稳态窗口中位数 **30.0085 FPS** |
-| PPG-AN00、同一驱动与比例、固定 60 实验模式、用户操作 90 秒 | 77 个窗口中位数 **52.832 FPS**，最高窗口 **59.874 FPS** |
-| ROD-W09、Mali 系统驱动、scale 1.0、固定 60 实验模式、用户操作短测 30 秒 | 15 个窗口中位数 **31.281 FPS** |
+### 未完成 / 未验证
 
-前四行为固定场景观测；实验模式采样包含场景变化，不是相同场景的交替 A/B。每个性能窗口统计 60 帧平均值。Adreno 设备在部分窗口可以达到约 60 FPS，但**尚未验证整个玩法过程持续稳定 60 FPS**。硬件、帧节奏和供电条件不同，不能将这些差异全部归因于代码。长时间热稳定性与耗电尚未验证。
+- 长时间游玩（内存增长、数小时稳定性）以及后续区域/Boss 尚未测试；游戏还可能调用其他未实现的 NVN 函数，届时会以 `Android NVN unsupported function` 中止。
+- 游戏内按键提示仍显示 Switch 图标（如 “R”），对应上述屏幕按键。
+- 音频已接通（FMOD 软件 Opus 路径，48 kHz 立体声），但没有用耳朵验证过。
+- 只支持一个采样器描述符池；纹理 swizzle、primitive restart、sample mask 被忽略（只记一行日志）；`QueueWaitSync` 为空操作。
+- 仅提供 debug 签名的 APK；应用要求游戏数据已放入其私有目录。
 
-Adreno 数据已排除系统意外注入的验证层；关闭该层是纠正采样配置，不是渲染代码提速。Mali 早先低电量采样曾下降到 21–22 FPS，未将其作为代码退化或优化收益的依据。
-
-本分支已实现的工作：
-
-- [Android 宿主与 App](dm/android/)：原生游戏装载、平台服务、文件与存档访问、AAudio 接入、触屏输入和 Android Activity。原生构建面向 Android API 29+ / arm64-v8a，这不代表所有满足最低版本的设备都已兼容。
-- 实时 FPS 显示和自动 16:9 等比适配：在宽屏手机和平板上保留原画面比例，游戏与触摸控件共用居中的显示区域，多余空间留边。已由 Adreno 设备上的实际体验确认显示与触摸位置正常。
-- **默认关闭的固定 60 FPS 实验模式**：忽略游戏请求的呈现间隔，保留 60 FPS 上限。在 App 私有目录创建 `files/d2r-mobile/diagnostics/present-60fps`，保存并重启游戏后启用；删除标记并重启即可恢复原始节奏。日志会明确记录生效周期；游戏时序和长时间运行仍待验证。
-- [Vulkan 渲染器](dm/gfx/nvn/nvn_vk.c)：精确资源同步、分块提前提交、异步完成、缓存写回暂存、分离 mip 采样的逐级图像布局、shader control 缓存，以及可选的详细性能诊断。
-- 已在 Qualcomm 系统驱动和固定 Turnip 驱动上各通过 **16 项 GPU fixture，共 32 项检查**，并通过六种 pass/chunk 计时配置及上述玩法冒烟复核。这不代表两套驱动都已通过完整游戏验证。动态 uniform 描述符已试验，因 FPS 收益无法复现而撤回。
-
-**待完成：** 更多 GPU 与设备覆盖、地牢/章节/传送点切换、大规模战斗与技能特效、受控 30 分钟热稳定性测试，以及进一步提速。尚未验证与 iOS 的全部功能一致。
-
-**构建现状：** Android 源码及 [CMake 入口](dm/android/CMakeLists.txt)已入库；目前 APK 打包、游戏数据准备和设备回归脚本位于独立开发工作区，尚未随本仓库提供，因此**从全新克隆到 APK 构建安装的完整流程仍未交付**。下方 iOS setup 与 IPA 说明不能用于生成 Android APK。游戏文件仍需自备，仓库不提供游戏素材、着色器或存档。
-
-下方截图、60 FPS 数据、功能介绍及安装步骤，除明确标注外，均描述 **iOS 版本**。
-
-<p align="center">
-  <img src="https://github.com/jhaizhou-ops/d2r-mobile/releases/download/assets/hero_zh.jpg" width="100%" alt="iPhone 上全面屏铺满的游戏画面：地狱难度的哈洛加斯，红门通往秘境">
-</p>
-<p align="center">
-  <img src="https://github.com/jhaizhou-ops/d2r-mobile/releases/download/assets/touch.jpg" width="49%" alt="触屏战斗，首领血条置顶">
-  <img src="https://github.com/jhaizhou-ops/d2r-mobile/releases/download/assets/ipad.jpg" width="49%" alt="iPad 上的真全屏">
-</p>
-
-| 100% | 60 帧 | 约 1 秒 | 约 3.8 W |
-|:---:|:---:|:---:|:---:|
-| 原版玩法，跑的就是原版程序 | 稳定，热机不掉帧 | 从主菜单进到局里 | 60 帧时的整机功耗 |
-
-## 这是什么，不是什么
-
-**是：**
-
-- 游戏自己的 aarch64 程序**直接在设备上执行**，没有模拟 CPU。iPhone 和 Switch 是同一类处理器，程序里只有极少数在苹果内核下不能原样执行的指令被改写，其余逐字节保持原样。所有职业、全部符文之语、恐怖地带、首领、掉落规则、任务流程，都和原版一模一样。
-- 游戏需要的平台服务——系统调用、文件系统、图形接口、音频、输入——由一个为苹果平台写的小型宿主提供；图形接口完全在苹果的 Metal 上重新实现，中间不经过任何模拟层，着色器由游戏原版离线翻译。
-- 一次真正为手机做的移植，而且做到了底：整套触屏操作、全面屏与 iPad 真全屏、手柄支持、省电模式、存档同步、中英双语，以及一整套原版没有的终局玩法与便利功能。
-
-**不是：**
-
-- 不是模拟器，也不是云游戏或串流。
-- **不含、也不分发任何游戏内容。** 仓库里没有游戏程序、美术、文字、数据表或着色器，这些都在你自己的机器上、用你自己的文件现做出来（见 [docs/GAME_FILES.zh-CN.md](docs/GAME_FILES.zh-CN.md)）。仓库里带着的是我们为适配而记录的接口信息——着色器的接口描述、图形接口的函数表、程序内的地址等——逐项列在 [docs/DERIVED.zh-CN.md](docs/DERIVED.zh-CN.md)。
-- 不支持联机，游戏完全离线运行，不需要任何联网账号。
-
-## 经过实战检验
-
-内测的 **44 台** iPhone 与 iPad——35 台登记设备（25 台 iPhone、10 台 iPad），加上 9 个 TestFlight 账号各一台——**全部顺利完成了普通、噩梦、地狱三个难度的多角色通关**，体验极佳。从 6 GB 内存的 iPhone 14 Pro Max 到最新的 iPad Pro，没有一台掉队。
-
-| | 机型 |
-|---|---|
-| iPhone | 14 Pro Max、15、15 Pro、15 Pro Max、16 Plus、16 Pro、16 Pro Max、17 Pro Max 等 |
-| iPad | iPad Air、iPad mini、iPad Pro 11 寸与 12.9 / 13 寸（含 M2、M4）等 |
-| 最低实测机型 | **iPhone 14 Pro Max（A16，6 GB 内存）：60 帧完美运行** |
-
-iPhone 与 iPad 共用一个安装包。
-
-<p align="center">
-  <img src="https://github.com/jhaizhou-ops/d2r-mobile/releases/download/assets/act1.jpg" width="19%" alt="第一幕">
-  <img src="https://github.com/jhaizhou-ops/d2r-mobile/releases/download/assets/act2.jpg" width="19%" alt="第二幕">
-  <img src="https://github.com/jhaizhou-ops/d2r-mobile/releases/download/assets/act3.jpg" width="19%" alt="第三幕">
-  <img src="https://github.com/jhaizhou-ops/d2r-mobile/releases/download/assets/act4.jpg" width="19%" alt="第四幕">
-  <img src="https://github.com/jhaizhou-ops/d2r-mobile/releases/download/assets/act5.jpg" width="19%" alt="第五幕">
-</p>
-
-## 极速、流畅、省电
-
-真机实测（iPhone 17 Pro Max）：
-
-| 项 | 读数 |
-|---|---|
-| 局内帧率 | **60 帧**，稳定，热机不掉帧 |
-| App 启动 | 0.15 秒 |
-| 到主菜单 | 约 1 秒 |
-| 从主菜单进到局里 | **约 1 秒** |
-| 一键重开，回到局里 | 约 1.2 秒 |
-| 换幕时最长的一帧 | 约 0.1 秒 |
-| 整机功耗，60 帧 | **约 3.8 W**（营地，亮度 50%），满电可连续玩近 5 小时 |
-| 整机功耗，省电模式 30 帧 | **约 1.85 W**，约为 60 帧时的一半，续航约翻倍 |
-
-<sub>测量条件：功耗为 2026-10-10 在 iPhone 17 Pro Max 上量的整机功耗，第一幕营地站立，亮度 50%，60 帧与省电模式同场景；续航由实测功耗与电池容量换算，不是从满电玩到没电。启动与入局时间为 2026-10 同机型实测；帧率与换幕为 2026-10-12 同机型进局后走图、换幕的读数。</sub>
-
-安装包只有一百多 MB；游戏资源（约 5.6 GB）单独放进手机，升级 App 时存档和资源都不动。
-
-之所以能这么快：程序是原生执行的，没有一条指令经过模拟；图形直接走 Metal；着色器全部离线翻译、预先编好，进新场景不用现编。旧机型（A16 及更早，如 iPhone 14 系列、iPhone 15）不支持游戏原本的贴图压缩格式，要用你自己的游戏文件另做一份贴图包，同样满帧——做法见 [docs/LEGACY_DEVICES.zh-CN.md](docs/LEGACY_DEVICES.zh-CN.md)。
-
-## 为手指重新设计
-
-这不是把手柄按键贴到屏幕上。每一个面板、每一种操作都按手指重新做过，设计原则只有一条：**沿用原版的界面语言，靠手势而不是往屏幕上加按钮**；字号和点击范围按手指大小重新设计。上手就会，玩久了也顺。
-
-<p align="center">
-  <img src="https://github.com/jhaizhou-ops/d2r-mobile/releases/download/assets/touch_game.jpg" width="49%" alt="触屏界面：摇杆与技能键">
-  <img src="https://github.com/jhaizhou-ops/d2r-mobile/releases/download/assets/belt.jpg" width="49%" alt="腰带与药水">
-</p>
-
-- **走**：摇杆移动，斜推方向精准；点 NPC、点地面自动寻路；门、传送门、洞口整扇都能点中。
-- **打**：技能按钮按下就放、按住连放、**拖动朝任意角度瞄准**，附近有怪自动锁定。两组技能；副手技能一键放——自动换武器、放技能、换回来，按钮上显示剩余次数。
-- **首领血条**固定在屏幕顶部，显示剩余百分比。
-- **物品**：单击、双击、长按、拖放全部跟手。双击装备直接穿上或卸下，拖到商人面板任意位置就能卖；成叠物品双击取 1 个、长按取 3 个；长按背包空格一键整理。
-- **文字**：用系统键盘输入，角色名可以用中文，留空随机取名。
-- **屏幕**：iPhone 19.5:9 全面屏铺满，避开刘海和圆角；iPad 游戏画面铺满整块屏幕，打开功能页时界面自动居中；3D 画面可加亮。
-
-### 手柄
-
-接上手柄、按任意键，界面自动换成原版手柄布局，每个面板底部带按键提示；碰一下屏幕，立刻回到触屏界面。物品栏、储藏箱、技能树、编年史、设置页全程手柄可操作，键位与 Switch 一致。
-
-<p align="center">
-  <img src="https://github.com/jhaizhou-ops/d2r-mobile/releases/download/assets/pad_game.jpg" width="49%" alt="接手柄时的界面">
-  <img src="https://github.com/jhaizhou-ops/d2r-mobile/releases/download/assets/pad_inv.jpg" width="49%" alt="手柄操作物品栏，底部有按键提示">
-</p>
-
-## 原版之上的新玩法
-
-原版通关只是开始。我们在不动原版规则的前提下，加了一整套让人刷得停不下来的终局内容。
-
-### 秘境
-
-通关地狱后从哈洛加斯的红门进入。共 100 层，怪物逐层变强；15 分钟内攒满进度、打倒守护者即过关。每过 2 层 +1 技能点、+5 属性点，技能等级上限从 20 提到 40；每 10 层有首通奖励；打通 10 层解锁佣兵的六个新装备位。
-
-<p align="center">
-  <img src="https://github.com/jhaizhou-ops/d2r-mobile/releases/download/assets/rift_panel_zh.jpg" width="40%" alt="秘境选层面板">
-  <img src="https://github.com/jhaizhou-ops/d2r-mobile/releases/download/assets/rift_game.jpg" width="58%" alt="秘境里的战斗">
-</p>
-
-### 终局首领连战、极乐世界、刷怪积分牌
-
-- **终局首领连战**：地狱难度通关后开启，共 12 关；第 11 关是暗黑克隆，第 12 关是超级三首领。
-- **极乐世界模式**（建角时勾选）：暗金 ×5、套装 ×3、符文 ×5，「不掉落」的概率缩小十倍，首领每次都按首杀掉落。
-- **刷怪积分牌**：每个首领的击杀次数、首杀时间、出了多少暗金与套装、最快和平均用时。
-
-<p align="center">
-  <img src="https://github.com/jhaizhou-ops/d2r-mobile/releases/download/assets/score.jpg" width="49%" alt="刷怪积分牌">
-  <img src="https://github.com/jhaizhou-ops/d2r-mobile/releases/download/assets/ely.jpg" width="49%" alt="建角时选择极乐世界模式">
-</p>
-
-### 仓库：装备党的收纳天堂
-
-- **编年史仓库**：每件已鉴定的暗金、套装各有固定一格，所有角色共用，可搜索、存取；「存放」按钮一键把背包和魔盒里的暗金、套装收进去。
-- **储藏箱**加宽到 14 列，个人仓库 5 页，共享仓库 5 页。
-- **珍宝匣**：宝石、符文、材料三页合成一页，中间就是魔盒的合成格，找东西、做合成不用来回翻页。往个人页或共享页里存的符文、宝石、材料会自动归进来。
-- **百宝囊**：扩展背包。野外的符文、宝石自动收进来，不占背包格。
-
-<p align="center">
-  <img src="https://github.com/jhaizhou-ops/d2r-mobile/releases/download/assets/trove.jpg" width="49%" alt="珍宝匣：宝石、符文、材料与合成格合在一页">
-  <img src="https://github.com/jhaizhou-ops/d2r-mobile/releases/download/assets/vault.jpg" width="49%" alt="编年史仓库">
-</p>
-
-### 省心刷宝
+## 已测试环境
 
 | | |
 |---|---|
-| 增益技能自动补 | 学了的增益技能不用摆在技能栏上：身上的增益没了，站定的那一刻自动补放；副手武器带的增益（如战争召唤）自动换手、补上、再换回 |
-| 药水与腰带 | 自动喝药分两档：生命低于 50% 喝红药，低于 30% 喝紫药；**佣兵同样自动喂药**。腰带有空位自动捡起地上的药水；双击腰带空格一键补满 |
-| 掉落过滤 | 进噩梦起自动启用原版的战利品过滤器，把杂物藏起来：噩梦轻筛，地狱重筛 |
-| 自动拾取 | 低号符文和宝石自动收进百宝囊，高号的留给你亲手捡 |
-| 高价值掉落提醒 | 高级符文和暗金冒光柱、换一个落地音，手机按价值震动轻、中、重三档 |
-| 符文之语助手 | 长按带孔底材，列出能做的符文之语和属性；符文齐了一键镶嵌 |
-| 小地图指引 | 每张地图标出小站和出入口；所有任务终点上图；目标在画面外时贴着屏幕边写名字 |
-| 省掉的琐事 | 鉴定免费、回城免费、进局直接落在传送小站旁、一键重开、商人货架可刷新 |
-| 存档 | 切后台、划掉、退出都立刻存盘；iCloud 多设备同步（需要付费开发者账号签名） |
+| 游戏导出 | 哈迪斯 II 基础包 `[0100A00019DE0000][v0].nsp` + 更新包 `[0100A00019DE0800][v589824].nsp`（即更新 **v9**；游戏内版本号 `v1.137848`）。使用的模块：`main`（build ID `8ce1ac48e9fa74479051f3520e632df4`）和 `sdk`（build ID `190030518b5d64e5d87b84bc54661af9`） |
+| 主机系统 | Windows 11（shell 脚本用 Git Bash） |
+| Android NDK | r27c（27.2.12479018），目标 `arm64-v8a`、`android-29` |
+| Android SDK | platform `android-35`，build-tools `35.0.0` |
+| JDK | OpenJDK 17.0.20 |
+| CMake / Ninja | 3.31.6 / 1.12.1 |
+| Python | 3.13（NSO 工具需要 `lz4`、`capstone`） |
+| .NET SDK | 10.0.402（着色器翻译器 `dmsh_xlate`） |
+| SPIR-V 校验器 | Vulkan SDK 中的 `spirv-val` |
+| 手机 | 骁龙 8 Elite（SM8750）、Adreno 830、16 GB 内存、Android 16（API 36）、Vulkan 1.4、2640×1216 屏幕 |
 
-多数功能能在游戏里「选项 → 自定义」页逐项开关。
+## 目录结构
 
-<p align="center">
-  <img src="https://github.com/jhaizhou-ops/d2r-mobile/releases/download/assets/rw.jpg" width="32%" alt="符文之语助手">
-  <img src="https://github.com/jhaizhou-ops/d2r-mobile/releases/download/assets/tomb.jpg" width="33%" alt="小地图标出任务终点">
-  <img src="https://github.com/jhaizhou-ops/d2r-mobile/releases/download/assets/map.jpg" width="33%" alt="全屏地图">
-</p>
-
-### 中文与英文
-
-整个游戏可在「选项 → 自定义」里切换为英文，重启后界面与语音都是英文：物品、技能、怪物名沿用原版英文，我们新增的内容——秘境、编年史、设置页、手柄提示——也全部配了英文。
-
-<p align="center">
-  <img src="https://github.com/jhaizhou-ops/d2r-mobile/releases/download/assets/en_game.jpg" width="58%" alt="英文界面下的游戏画面">
-  <img src="https://github.com/jhaizhou-ops/d2r-mobile/releases/download/assets/en_panel.jpg" width="40%" alt="英文的秘境面板">
-</p>
-
-## iOS 版怎么做到的
-
-```mermaid
-flowchart LR
-    G["你的游戏文件<br/>（程序 + 资源）"] --> P["改写器<br/>只改少数指令"]
-    G --> S["着色器翻译<br/>原版 → Metal"]
-    P --> H["宿主<br/>系统服务"]
-    S --> X["图形层<br/>Metal 上的图形接口"]
-    H --> A["iOS App<br/>触屏与界面"]
-    X --> A
+```
+dm/android/            安卓宿主：JNI、音频、输入、GameActivity、哈迪斯 HLE（hades_hle.c）、触控板（hades_pad*.c）
+dm/android/hades_patches/  对上游文件的补丁（相对上游 62c6db8）
+dm/android/hades_test/ 哈迪斯 HLE 的宿主侧单元测试
+dm/gfx/nvn/            NVN → Vulkan 层（含 hades_nvn.inc，哈迪斯专用 NVN 入口）
+dm/host/               Switch 系统 HLE（svc、fs 等）
+dm/tools/              NSO 改写器、RomFS / 着色器缓存 / APK / adb 推送工具
+scripts/               配置 / 重建 / 运行 / 冒烟测试脚本（设置 N2A_TOOLS、ADB，见 scripts/env.sh）
+docs/upstream/         上游 README、设计与贡献文档
+.local/                被 git 忽略：你的游戏数据、密钥、构建产物、日志
 ```
 
-| 部分 | 位置 | 做什么 |
-|---|---|---|
-| 程序改写器 | `dm/tools/patch_nso.py` | 只改写在苹果内核下不能原样执行的少数指令（线程指针寄存器、系统调用、计时器），程序其余部分逐字节保持原样 |
-| 宿主 | `dm/host` | 装载改写后的程序，提供它调用的平台服务 |
-| 图形 | `dm/gfx` | 在 Metal 上实现游戏用的图形接口；着色器由游戏原版离线翻译 |
-| iOS App | `dm/ios` | App 外壳、触摸操作与界面 |
-| 验证 | `dm/verify` | 核对改写后的代码与原版行为完全一致，以及每次改动都要过的回归闸门 |
+## 准备你自己的游戏文件
 
-**为什么可信：** 稳定不是靠运气。测试与验证工具是项目的一部分——宿主与图形层的单元测试、对每一处改写指令的等价核对、触摸界面的脚本化走查回归、真机冒烟。从 `make -C dm/host/tests run`、`make -C dm/gfx/tests run` 与 `dm/verify/regress.sh` 开始（都在下面第 2 步准备的 Python 环境里跑；`regress.sh` 另需 `brew install llvm`）。怎么参与见 [CONTRIBUTING.zh-CN.md](CONTRIBUTING.zh-CN.md)。
+下面全部使用**你自己的**导出文件。密钥、NSP、解出的文件和准备好的数据都不要放进版本控制（`.local/` 已被 git 忽略）。
 
-## 支持哪些设备
+1. 从你的 Switch 导出基础包和 v9 更新包，以及你自己的 `prod.keys`。用 `nstool`/`hactool` 解出更新包的 *Program* NCA（RomFS 需要基础包 NCA 配合），得到 `main`、`sdk` 两个 NSO 和合并后的 RomFS 目录树。
+2. 改写模块：`python dm/tools/patch_nso.py <nso> <输出目录> main`，`sdk` 同理；用 `dm/tools/check_patched_nso.py <输出目录> main sdk` 检查。
+3. 构建 RomFS 镜像：`python dm/tools/romfs_build.py <romfs 目录树> game.romfs`（用 `romfs_verify_tree.py` 校验）。
+4. 翻译着色器：`python dm/tools/hades2_shader_cache.py --shaders <目录> --xlate <dmsh_xlate.dll> --dotnet <dotnet> --validator <spirv-val> --out <缓存目录>`。
+5. 构建并安装 APK：`bash scripts/rebuild.sh`（把 `N2A_TOOLS` 指向包含 `ndk/ sdk/ jdk/ cmake/ ninja/` 的目录）。
+6. 推送数据：`python dm/tools/hades2_push.py --modules <输出目录> --romfs game.romfs --shaders <缓存目录> --package org.hades2.mobile`。
+7. 启动：`bash scripts/run_game.sh`（或直接打开应用）。`bash scripts/drive.sh` 是一个简单的冒烟测试。
 
-最低要求：**A14 / M1 及以后的芯片**——本项目的图形层要用 Metal 3，苹果从 A14 / M1 起才支持（依据：苹果的[Metal 支持的设备](https://support.apple.com/102894)、[Metal 功能表](https://developer.apple.com/metal/Metal-Feature-Set-Tables.pdf)）。
+哈迪斯 HLE 的宿主侧检查（需要 C 编译器，例如 `python -m ziglang cc`）：见 `dm/android/hades_test/hades_hle_test.c` 文件头。
 
-| 设备 | 能不能玩 | 怎么做 | 把握程度 |
-|---|---|---|---|
-| **iPhone / iPad，A17 Pro 及以后**（iPhone 15 Pro 起、iPhone 16 起、M 系列芯片的 iPad） | 直接玩 | iOS 26 及以上用缺省的壳 / 缺省构建；iOS 18 – 25 用 iOS 18 的壳 / [老接口版](docs/OLDER_SYSTEMS.zh-CN.md) | 主力机型，日常在玩 |
-| **iPhone / iPad，A16 及更早**（iPhone 14 全系、iPhone 15 / 15 Plus、iPhone 13 系列等） | 可以玩，多一步 | 按 [docs/LEGACY_DEVICES.zh-CN.md](docs/LEGACY_DEVICES.zh-CN.md) 用自己的游戏文件做一份老机型补充包，做安装包时带上它；系统同上一行分 iOS 26 / iOS 18 – 25 | 已有玩家实测：iPhone 14 Pro Max（A16，6 GB）60 帧；iPhone 13 Pro Max（A15，6 GB）30 帧档 |
-| **4 GB 内存的设备**（如 iPad mini 第 6 代、iPad Air 第 4 代） | 能进游戏，内存很紧（在继续优化内存） | 同 A16 及更早那一行（带老机型补充包） | 已有玩家实测：iPad mini 6（A15，4 GB，iPadOS 27）第一幕实际玩了几分钟，画质自动降低后 50–58 帧，但一直收到系统内存告警、离系统内存上限只剩约 560 MB，怪多特效多的场景可能被系统结束；更早的版本上 iPad Air 4（A14，4 GB）启动几秒即被系统结束 |
-| **A14 芯片、6 GB 及以上内存**（如 iPhone 12 Pro / 12 Pro Max） | 尚无报告 | 同 A16 及更早那一行 | 欢迎试过的人开 Issue 告诉我们结果 |
-| **A13 及更早的芯片**（如 iPhone 11 系列、2020 年的 iPad Pro） | 不支持 | — | 图形芯片不支持 Metal 3（玩家在 iPad Pro A12Z 上实测；苹果依据见表上方）；App 启动时会直接提示，不会闪退 |
-| **Mac，Apple 芯片** | 直接玩（原生 macOS App） | macOS 26 及以上用缺省出法；macOS 15 – 25 用[老接口出法](docs/OLDER_SYSTEMS.zh-CN.md)。键盘、鼠标、手柄都能玩，各自能做什么见 [docs/MAC.zh-CN.md](docs/MAC.zh-CN.md) | 已有玩家在 macOS 15.7.7 上实际玩过老接口版 |
-| **Apple TV 4K（第三代 A15）** | 社区移植（[@yinqingyan](https://github.com/yinqingyan)，经作者同意按 MIT 许可贡献），开发者预览 | 照 [dm/tvos/README.md](dm/tvos/README.md) 构建并把游戏文件、老机型补充包拷进 App；只能在实机上跑，模拟器跑不了；存档放在系统可清理的 Caches 目录里 | 已在实机上到达职业选择画面；进游戏、手柄全键位、存档尚未验证，维护者没有实机测试过 |
-| **Intel 芯片的 Mac** | 不支持 | — | — |
+## 许可
 
-**App 里弹的框是什么意思**
-
-- **「这台设备要多做一步」**：这台手机可以玩，只是做安装包时没有带上老机型补充包。照 [docs/LEGACY_DEVICES.zh-CN.md](docs/LEGACY_DEVICES.zh-CN.md) 做好补充包、带着它重新做一次安装包再装，就能进游戏。
-- **「暂不支持本机型……iPhone 15 Pro 及以后可以玩」**：这是 v1.0.9 以前的旧文字。用的是旧版本，更新到最新版本即可；A16 及更早的机型照上一条做。
-
-**自己做的包和我们内测包的差别**：公开版可以用免费的 Apple ID 自己做包、自己装。内测包里有三样公开版没有：iCloud 存档同步（需要 App 带着 iCloud 的签名权限，自己签的包没有）、App 内下载补充包与资源、新版本提醒（这两样要用到我们自己的服务端）。游戏本身和我们加的玩法两边一样。
-
-## 开始使用 Apple 平台版
-
-两条路都要先有**你自己购买的游戏的文件**：Switch 版《暗黑破坏神 II：狱火重生》本体加「术士君临」资料片，更新到 1.0.34.0（主机上显示的版本号；它对应 PC 版的 3.3.94012，本仓库的目录名和工具里用的是后一个号）。本项目是按带这部资料片的版本做的，没有资料片的情况不支持、也没有验过。怎么准备见 [docs/GAME_FILES.zh-CN.md](docs/GAME_FILES.zh-CN.md)。
-
-> 本项目只提供工具与不含任何游戏内容的安装壳。我们不提供、不认可、也不对任何第三方分发游戏资源、游戏主程序或含游戏内容的安装包的行为负责。请只使用你自己合法拥有的游戏文件。
-
-本项目基于 Switch 版 1.0.34.0（对应 PC 版的 3.3.94012）实现并验证，工具默认只认这一版。已有社区用户反馈，参照仓库结构自行适配了其他版本并成功运行。规则表按游戏版本分组存放（`dm/tools/patch_nso.py` 里按主程序的构建标识分组），欢迎把你适配的版本提交回来。
-
-**先对一下你的设备**：上面「支持哪些设备」那张表告诉你该用哪种构建、要不要多做一份老机型补充包。
-
-| | 有 Mac | 没有 Mac |
-|---|---|---|
-| 电脑 | Apple 芯片的 Mac，装好 Xcode | Windows / Linux / 没装 Xcode 的 Mac |
-| 做法 | 从源码完整构建 | 下载不含游戏内容的「壳」，用工具把你的游戏内容做进去，再用自签工具装机 |
-| 现状 | 主路，上面的一切都出自它 | Windows 上从做包到真机游玩整条走通，两个系统做出的游戏程序逐字节相同；只剩用自签工具签名这一步等你来反馈 |
-| 说明 | 下面三步 | [docs/NO_XCODE.zh-CN.md](docs/NO_XCODE.zh-CN.md) |
-
-签名用的 Apple 账号：付费的开发者账号功能最全；免费的 Apple ID 也可以（没有 iCloud 存档同步，每 7 天要重新签名重装）。完整的依赖清单见 [docs/DEPENDENCIES.zh-CN.md](docs/DEPENDENCIES.zh-CN.md)。
-
-### 有 Mac：三步
-
-1. 把游戏文件放进工作区（缺省 `~/dm-work`，或设 `DM_ROOT`）：
-
-   ```
-   ~/dm-work/data/switch/3.3.94012/Update/ExeFS/    main、sdk、subsdk0
-   ~/dm-work/data/switch/3.3.94012/Update/RomFS/    data/…
-   ```
-
-2. 准备工作区。这一步检查工具、改写游戏程序、把游戏的着色器翻译成 Metal。第一次较久，之后已做过的会跳过。
-
-   ```
-   ./setup.sh
-   source ~/dm-work/build/cache/dm/venv/bin/activate     # 之后的命令都在 setup 准备好的 Python 环境里跑；换过 DM_ROOT 的话把 ~/dm-work 换成它
-   ```
-
-3. 填好签名信息，出 App：
-
-   ```
-   cp dm/ios/local.env.example dm/ios/local.env     # 填 DM_TEAM_ID 与 DM_BUNDLE_ID；免费 Apple ID 另填 DM_FREE_ACCOUNT=1 与 DM_IOS_UDID，构建时手机连着
-   cd dm/ios && ./run.sh build    # 缺省同时面向 iPhone 与 iPad；只要 iPhone：DM_DEVICE_FAMILY=1 ./run.sh build
-   ```
-
-装到手机上第一次打开，App 会要「游戏资源文件夹」——就是游戏文件里的 18 个资源档案，怎么放见 [docs/GAME_FILES.zh-CN.md](docs/GAME_FILES.zh-CN.md) 的「手机上要放的那个游戏资源文件夹」一节。
-
-`./setup.sh check` 是体检：逐项报告这台电脑、工具、游戏文件、签名配置的状态，缺的每一项都给出去哪拿和下一步命令，不做任何改动。手上是一整个游戏包（`.xci` / `.nsp`）时，`./setup.sh <游戏包> <prod.keys>` 会先把游戏文件取出来放到位再接着准备（要先装 hactool）。每次更新到新的提交之后都要再跑一遍 `./setup.sh`：它会按当前源码重出改写产物与着色器库（已是最新的步骤会跳过）。它还会改写仓库里三个随工具指纹变化的文件（`dm/gfx/tools/dmsh_chain.lock`、`dm/gfx/nvn/dmsh_chain.h`、`dm/gfx/nvn/c1_full.tsv`），这是预期的，不要提交它们。
-
-### 在 Mac 上直接玩
-
-同一份 `./setup.sh` 做完之后，再跑一条命令就能出一个原生的 macOS App，双击启动，键盘、鼠标、手柄都能用，不需要开发者账号：
-
-```bash
-source ~/dm-work/build/cache/dm/venv/bin/activate
-dm/tools/mac_app.sh                  # macOS 26 及以上：产出 ~/dm-work/out/macapp/D2R Mobile.app
-DM_MAC_M3=1 dm/tools/mac_app.sh      # macOS 15 – 25：产出 D2R Mobile M3.app
-```
-
-界面用原版的手柄版界面。键盘：空格确认、Esc 返回、回车、`=` 键开菜单 / 新角色，W A S D 移动，其余手柄键各有对应。鼠标：点怪、NPC、物件会走过去交互，底部的技能格、药水格、按键提示、面板里的按钮和页签、建角时的职业、小地图都能点；点空地会走过去、按住一直走，点怪是攻击，物品的双击和拖放也认鼠标。用键盘时屏上的按键提示直接显示键盘键名。存档在这台 Mac 上（自己构建的 App 没有 iCloud 同步），可以从 iPhone / iPad 手工导入。键位表、建角怎么按、鼠标能做什么、导入步骤和已知不足，见 [docs/MAC.zh-CN.md](docs/MAC.zh-CN.md)。键盘、实体手柄这几项还未经真人操作，你试过的话，请告诉我们结果。
-
-### 没有 Mac：壳 + 做包工具
-
-从本仓库的[发布页](https://github.com/jhaizhou-ops/d2r-mobile/releases)下载我们预先做好的、不含游戏内容的「壳」安装包（`D2RMobile-shell-build-input.zip`；iOS 18 – 25 用 `D2RMobile-shell-ios18-build-input.zip`），加上你自己的游戏文件，在 Windows 或 Linux 上做出安装包，再用自签工具签名装机。壳是做安装包的原料，不能直接装来玩（直接装上去只会弹框说明、不会进游戏）；换新版本时要用新版的壳重新做一次安装包。只有走这条路时，因为做包的电脑上没有苹果的着色器编译器，手机**第一次启动**要花约 7 分钟把着色器编完（一次性，带进度条）；用 Xcode 构建的包没有这一步。步骤与每一步的验证现状见 [docs/NO_XCODE.zh-CN.md](docs/NO_XCODE.zh-CN.md)。
-
-## 已知限制
-
-| 项 | 现状 |
-|---|---|
-| 联机 | 不在范围内，完全离线 |
-| `.nsp` / `.xci` 两种游戏包 | 工具只核对主程序的版本，不区分包的格式；我们自己用 `.xci` 走过全程，有网友反馈 `.nsp` 格式的游戏包也完美兼容 |
-| 用自签工具（Sideloadly、AltStore 等）签名装机 | 没验过，欢迎开 Issue 告诉我们结果 |
-| Linux 上做包 | 没验过（Windows 与 Mac 上验过） |
-| 没升到 iOS 26 / macOS 26 的设备 | 可以玩，用老接口版（最低 iOS 18.0 / macOS 15.0）：[docs/OLDER_SYSTEMS.zh-CN.md](docs/OLDER_SYSTEMS.zh-CN.md)；完整的设备表见上面「支持哪些设备」 |
-| A16 及更早的机型（iPhone 14 系列、iPhone 15 / 15 Plus 等） | 可以玩，要多做一份老机型贴图包并带着它构建 App：[docs/LEGACY_DEVICES.zh-CN.md](docs/LEGACY_DEVICES.zh-CN.md)。App 提示「这台设备要多做一步」（旧版本显示的是「暂不支持本机型」）就是缺这一步 |
-| 物品注释里的「一句点评」与「旧译名对照」 | 两张内容表不随仓库提供，可自备，见 `dm/ios/tools/annot/README.zh-CN.md` |
-
-## 参与与反馈
-
-- 遇到问题请开 Issue（有模板）；能附上暂停菜单里「分享诊断日志」导出的文件最好。
-- 没验过的那几项，走通或走不通都值得告诉我们。
-- 想改代码：先跑通上面的测试入口，每次改动都要过回归闸门。
-
-**往别的平台走：** 上游项目也在 Apple 芯片的 Mac 上运行回归包。本分支已实现上方 [Android 支持](#android-支持实验性)所述的 Android 宿主和 Vulkan 后端。反馈 Android 问题时，请附设备/GPU、渲染比例、测试场景、构建版本及供电和温度条件。
-
-**往别的游戏走：** 已经有人拿同一份宿主去试别的 Switch 游戏。宿主里有一些「iOS 上缺省就开」的行为是为这一个游戏写的，换游戏会先撞到它们，动手前先关掉或挪走：
-
-- `dm/host/hle_oe.c`：三维渲染比例在 iOS 上缺省 0.75，`scale3d_tick` 按这个游戏渲染器里的偏移去改写——换一个游戏，那就是个野指针。
-- `dm/host/hle_fs.c`：首次启动预置共享仓库（`DM_STASH_SEED`）与触屏版缺省设置（`DM_TOUCH_DEFAULTS`），iOS 上缺省开。
-- `dm/host/main.c`：存档落盘节流改的是游戏程序里一个固定地址上的常数；`argv[0]` 写死成 `"D2R"`。
-- `dm/host/hle_time.c`：固定时刻的测试开关认的是游戏程序里的一个固定地址。
-- `dm/host/front_mac.m` 的 `front_game_res`：底座 / 掌机两档分辨率写死成 1600×900 / 1280×720。
-- `dm/host/dm_cloudsync.c`：按 `.d2s` 认角色目录。
-- `dm/host/dm_cursor.c`、`dm/host/dm_world.c`：整个文件都是这个游戏专属的。
-
-更干净的做法是把这些缺省值挪进各游戏自己的配置，宿主里不带游戏专属的缺省；欢迎朝这个方向提合并请求。
-
-## 各部分的说明
-
-| 说明 | 讲什么 |
-|---|---|
-| [dm/README.zh-CN.md](dm/README.zh-CN.md) | 整套东西怎么工作、目录、常用命令、宿主各文件 |
-| [dm/gfx/README.zh-CN.md](dm/gfx/README.zh-CN.md) | 图形层与着色器翻译链 |
-| [dm/ios/README.zh-CN.md](dm/ios/README.zh-CN.md) | iOS 外壳、出包与冒烟 |
-| [dm/verify/README.zh-CN.md](dm/verify/README.zh-CN.md) | 验证工具各自验什么、需要什么前提 |
-| [docs/GAME_FILES.zh-CN.md](docs/GAME_FILES.zh-CN.md) | 游戏文件：要哪些、怎么从自己的主机取、放到哪 |
-| [docs/DEPENDENCIES.zh-CN.md](docs/DEPENDENCIES.zh-CN.md) | 依赖清单与第三方许可证 |
-| [docs/NO_XCODE.zh-CN.md](docs/NO_XCODE.zh-CN.md) | 不用 Xcode、不用 Mac 的做法 |
-| [docs/MAC.zh-CN.md](docs/MAC.zh-CN.md) | 在 Mac 上玩：构建 macOS App、键位、已知不足 |
-| [docs/LEGACY_DEVICES.zh-CN.md](docs/LEGACY_DEVICES.zh-CN.md) | 老机型（A16 及更早）：怎么做贴图包、怎么放进手机 |
-| [docs/OLDER_SYSTEMS.zh-CN.md](docs/OLDER_SYSTEMS.zh-CN.md) | 老系统（iOS 18 – 25、macOS 15 – 25）：老接口版怎么出、和老机型贴图包怎么组合 |
-| [docs/qa-rift-pet-life.zh-CN.md](docs/qa-rift-pet-life.zh-CN.md) | 大秘境随从生命的回归清单（哪些跑过、哪些还没人跑，欢迎补） |
-| [docs/DERIVED.zh-CN.md](docs/DERIVED.zh-CN.md) | 仓库里与游戏有关的东西：有什么、没有什么、为什么 |
-
-## 声明
-
-**你必须拥有正版游戏，包括「术士君临」资料片。** 这是一个独立的非商业项目，与暴雪娱乐、任天堂没有关联，也未获其认可或赞助。Diablo 与 Blizzard Entertainment 是暴雪娱乐的商标，Nintendo Switch 是任天堂的商标。请只配合你自己拥有的游戏使用。
-
-## 致谢
-
-这个项目建立在下面这些开源工作之上，谢谢各位作者和维护者。
-
-- **Ryujinx**（Ryubing 1.3.2，MIT）：`dm/third_party/ryujinx` 原样内置了它的着色器翻译库（Ryujinx.Graphics.Shader、Spv.Generator、Ryujinx.Common 三个项目，未修改），用来把 Switch 原版着色器翻译成 SPIR-V。开发过程中，我们还用打了补丁的 Ryujinx 跑原版游戏，作为画面和游戏状态的对照参考（做法见 [dm/verify/README.zh-CN.md](dm/verify/README.zh-CN.md)；构建和驱动它的脚本不在本仓库里）。
-- **deko3d**（devkitPro，zlib）：`dm/gfx/nvn/nvn_tex.c` 里的贴图排布尺寸算法移植自它。
-- **nvn.h**（h1k421，MIT）：图形接口声明 `dm/gfx/nvn/include/nvn.h`。
-- **libdeflate**（Eric Biggers，MIT）：解压游戏数据。
-- **bcdec**（iOrange，MIT 或 Unlicense）：在不支持 BC 贴图格式的设备上解压 BC 贴图。
-- **FLIP**（NVIDIA，BSD 3-Clause）：画质验证里的画面差异度量。
-- **离线修复补丁**（LFS Mod Offline Fix）：`dm/tools/patch_nso.py` 里让游戏离线运行的 7 处改写取自这个社区补丁。它的首发处和作者我们没有确切记录，知道的请开 Issue 告诉我们。
-- 构建与验证用到的工具：SPIRV-Cross（把 SPIR-V 转成 Metal 着色语言）、XcodeGen、.NET、Capstone 和 Unicorn（改写前后的反汇编与等价核对）、Pillow、numpy、lz4、astcenc（老机型补充包）、hactool（从游戏包取文件）、libimobiledevice、LLVM。版本和地址见 [docs/DEPENDENCIES.zh-CN.md](docs/DEPENDENCIES.zh-CN.md)。
-- 社区贡献：Joe Hu 报告并定位了多处秘境问题，还提出了验证矩阵；seedds 在另一款游戏的移植中发现并定位了渲染目标视图格式的问题（#36）。他们在相应提交里署名为共同作者。
-
-## 许可证
-
-MIT，见 [LICENSE](LICENSE)。第三方代码各自的许可证在其目录内，见 [docs/DEPENDENCIES.zh-CN.md](docs/DEPENDENCIES.zh-CN.md)。
+与上游一致，MIT（见 [`LICENSE`](LICENSE)），保留上游版权声明。《哈迪斯 II》及全部游戏内容归其各自权利人所有，本仓库不分发。
