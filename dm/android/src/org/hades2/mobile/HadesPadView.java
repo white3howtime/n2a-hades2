@@ -148,7 +148,7 @@ public final class HadesPadView extends View {
     /** Small pill at the button's upper right carrying that key name. */
     private void badge(Canvas c, int btn, float cx, float cy, float r, float dp) {
         String s = keyName(btn); if (s == null) return;
-        float h = Math.max(15f * dp, r * .62f), bx = cx + r * .72f, by = cy - r * .72f;
+        float h = 15f * dp, bx = cx + r * .72f, by = cy - r * .72f;
         text.setTextSize(h * .62f); text.setTypeface(android.graphics.Typeface.DEFAULT_BOLD); text.setColor(0xF2FFFFFF);
         float w = Math.max(h, text.measureText(s) + h * .5f);
         fill.setShader(null); fill.setColor(0xCC10141A); c.drawRoundRect(bx - w / 2, by - h / 2, bx + w / 2, by + h / 2, h / 2, h / 2, fill);
