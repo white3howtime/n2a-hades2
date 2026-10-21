@@ -10,20 +10,20 @@ enum { AN_R, AN_L, AN_T, AN_C };   /* right-bottom cluster, left-bottom cluster,
 /* One layer only: the menu-mode controls (D-pad, OK, Back, pages, mode switch) have modes = 0, so they are never shown or hit.
  * Menus use the stick, Cast (A) confirms and Dash (B) goes back. */
 static const struct { const char *name; unsigned modes; int anchor; float dx, dy, r; int aim; } LAY[HP_NBTN] = {
-    [HP_ATTACK]    = { "ATTACK",    M_PLAY, AN_R,    0,   0, 30, 1 },
-    [HP_SPECIAL]   = { "SPECIAL",   M_PLAY, AN_R,  -64,  -4, 24, 1 },
-    [HP_CAST]      = { "CAST",      M_PLAY, AN_R,  -32, -62, 24, 1 },
-    [HP_DASH]      = { "DASH",      M_PLAY, AN_R,   66,  18, 24, 0 },
-    [HP_INTERACT]  = { "INTERACT",  M_PLAY, AN_R,  -70,  50, 22, 0 },
-    [HP_CALL]      = { "CALL",      M_PLAY, AN_R,   34,-108, 20, 0 },
-    [HP_LOCK]      = { "LOCK",      M_PLAY, AN_R,   36, -56, 20, 0 },
+    [HP_ATTACK]    = { "ATTACK",    M_PLAY, AN_R,    0,   0, 38, 1 },
+    [HP_SPECIAL]   = { "SPECIAL",   M_PLAY, AN_R,  -80,   6, 24, 1 },
+    [HP_CAST]      = { "CAST",      M_PLAY, AN_R,  -40, -76, 24, 1 },
+    [HP_DASH]      = { "DASH",      M_PLAY, AN_R,   74,  26, 24, 0 },
+    [HP_INTERACT]  = { "INTERACT",  M_PLAY, AN_R,  -92,  58, 22, 0 },
+    [HP_CALL]      = { "CALL",      M_PLAY, AN_R,   82, -44, 20, 0 },
+    [HP_LOCK]      = { "LOCK",      M_PLAY, AN_R,   34, -80, 20, 0 },
     [HP_PAUSE]     = { "PAUSE",     M_PLAY, AN_T,  -28,  28, 17, 0 },
     [HP_INFO]      = { "INFO",      0, AN_T,  -68,  28, 17, 0 },
     [HP_MODE]      = { "MODE",      0, AN_T, -108,  28, 17, 0 },
     [HP_DPAD_UP]   = { "DPAD_UP",   0, AN_L,    0, -48, 24, 0 },
     [HP_DPAD_DOWN] = { "DPAD_DOWN", 0, AN_L,    0,  48, 24, 0 },
     [HP_DPAD_LEFT] = { "DPAD_LEFT", 0, AN_L,  -48,   0, 24, 0 },
-    [HP_DPAD_RIGHT]= { "DPAD_RIGHT",0, AN_L,   48,   0, 24, 0 },
+    [HP_DPAD_RIGHT]= { "DPAD_RIGHT",M_PLAY, AN_R,  96,-100, 20, 0 },
     [HP_CONFIRM]   = { "CONFIRM",   0, AN_R,   48,   0, 24, 0 },
     [HP_BACK]      = { "BACK",      0, AN_R,    0,  48, 24, 0 },
     [HP_ALT1]      = { "ALT1",      0, AN_R,    0, -48, 24, 0 },
@@ -60,8 +60,8 @@ void hp_config_default(hp_config *c) {
     /* ATTACK/SPECIAL/CAST/DASH are the game's defaults as reported by the user (Y, X, A, B).
      * INTERACT, CALL and LOCK are still GUESSES: check the controls screen and override with hp_config_parse. */
     c->mask[HP_ATTACK] = HP_NPAD_Y;   c->mask[HP_SPECIAL] = HP_NPAD_X;  c->mask[HP_CAST] = HP_NPAD_A;
-    c->mask[HP_DASH] = HP_NPAD_B;     c->mask[HP_INTERACT] = HP_NPAD_ZR; c->mask[HP_CALL] = HP_NPAD_ZL;
-    c->mask[HP_LOCK] = HP_NPAD_R;
+    c->mask[HP_DASH] = HP_NPAD_B;     c->mask[HP_INTERACT] = HP_NPAD_R;  c->mask[HP_CALL] = HP_NPAD_ZL;
+    c->mask[HP_LOCK] = HP_NPAD_ZR;   /* Hex (巫咒) */
     c->mask[HP_PAUSE] = HP_NPAD_PLUS; c->mask[HP_INFO] = HP_NPAD_MINUS;
     c->mask[HP_DPAD_UP] = HP_NPAD_UP; c->mask[HP_DPAD_DOWN] = HP_NPAD_DOWN;
     c->mask[HP_DPAD_LEFT] = HP_NPAD_LEFT; c->mask[HP_DPAD_RIGHT] = HP_NPAD_RIGHT;
@@ -121,7 +121,7 @@ int hp_config_parse(hp_config *c, const char *text) {
 static void center_of(const hp_state *s, int b, float *x, float *y) {
     float u = s->density, ax, ay;
     switch (LAY[b].anchor) {
-    case AN_R: ax = s->w - s->inset_r - 112 * u;  ay = s->h - s->inset_b - 84 * u; break;
+    case AN_R: ax = s->w - s->inset_r - 160 * u;  ay = s->h - s->inset_b - 84 * u; break;
     case AN_L: ax = s->inset_l + 80 * u;         ay = s->h - s->inset_b - 84 * u; break;
     case AN_T: ax = s->w - s->inset_r;           ay = 0; break;
     default:   ax = s->w * .5f;                  ay = 0; break;

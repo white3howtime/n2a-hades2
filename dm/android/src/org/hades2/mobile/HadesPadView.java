@@ -109,7 +109,7 @@ public final class HadesPadView extends View {
             int btn = (int) vis[1 + 5 * i]; float cx = vis[2 + 5 * i], cy = vis[3 + 5 * i], r = vis[4 + 5 * i];
             boolean pressed = vis[5 + 5 * i] != 0;
             disc(c, cx, cy, r, pressed, dp);
-            int ink = pressed ? 0xFF10141A : 0xF2FFFFFF;
+            int ink = pressed ? 0xFF10141A : 0xE6FFFFFF;
             line.setColor(ink); fill.setColor(ink); fill.setShader(null);
             icon(c, btn, cx, cy, r, menu);
         }
@@ -119,18 +119,15 @@ public final class HadesPadView extends View {
             line.setColor(0x80FFFFFF); c.drawCircle(vis[t + 1], vis[t + 2], r, line);
             fill.setColor(0xB0FFFFFF); c.drawCircle(vis[t + 3], vis[t + 4], r * .45f, fill);
         }
-        if (vis[t + 6] != 0) {
-            line.setColor(0xCCFFFFFF); c.drawLine(vis[t + 7], vis[t + 8], vis[t + 9], vis[t + 10], line);
-        }
     }
 
     /** Soft dark glass disc with a thin light rim and a drop shadow; solid light when pressed. */
     private void disc(Canvas c, float cx, float cy, float r, boolean pressed, float dp) {
-        fill.setShader(null); fill.setColor(0x33000000); c.drawCircle(cx, cy + dp * 1.5f, r + dp, fill);
-        if (pressed) fill.setColor(0xDDFFFFFF);
-        else fill.setShader(new android.graphics.LinearGradient(cx, cy - r, cx, cy + r, 0x9A3A4452, 0x9A12161C, android.graphics.Shader.TileMode.CLAMP));
+        fill.setShader(null); fill.setColor(0x1F000000); c.drawCircle(cx, cy + dp * 1.5f, r + dp, fill);
+        if (pressed) fill.setColor(0xB0FFFFFF);
+        else fill.setShader(new android.graphics.LinearGradient(cx, cy - r, cx, cy + r, 0x4A3A4452, 0x4A12161C, android.graphics.Shader.TileMode.CLAMP));
         c.drawCircle(cx, cy, r, fill); fill.setShader(null);
-        line.setStyle(Paint.Style.STROKE); line.setStrokeWidth(1.5f * dp); line.setColor(pressed ? 0xFFFFFFFF : 0x80FFFFFF); c.drawCircle(cx, cy, r, line);
+        line.setStyle(Paint.Style.STROKE); line.setStrokeWidth(1.5f * dp); line.setColor(pressed ? 0xE6FFFFFF : 0x73FFFFFF); c.drawCircle(cx, cy, r, line);
     }
 
     /** Vector icons instead of text: keeps the buttons small and language-free. Order matches hp_btn in hades_pad.h. */
@@ -166,10 +163,10 @@ public final class HadesPadView extends View {
                 p.moveTo(x - k * 1.0f, y - k * .35f); p.lineTo(x - k * .25f, y - k * .35f); p.lineTo(x + k * .65f, y - k * 1.0f); p.lineTo(x + k * .65f, y + k * 1.0f);
                 p.lineTo(x - k * .25f, y + k * .35f); p.lineTo(x - k * 1.0f, y + k * .35f); p.close(); c.drawPath(p, fill);
                 c.drawArc(x + k * .2f, y - k * .6f, x + k * 1.25f, y + k * .6f, -50, 100, false, line); break;
-            case 6: // lock: target
-                c.drawCircle(x, y, k * .62f, line); c.drawCircle(x, y, k * .17f, fill);
-                c.drawLine(x, y - k * 1.15f, x, y - k * .62f, line); c.drawLine(x, y + k * .62f, x, y + k * 1.15f, line);
-                c.drawLine(x - k * 1.15f, y, x - k * .62f, y, line); c.drawLine(x + k * .62f, y, x + k * 1.15f, y, line); break;
+            case 6: { // hex: crescent moon
+                p.setFillType(Path.FillType.EVEN_ODD);
+                p.addCircle(x - k * .1f, y, k * 1.05f, Path.Direction.CW); p.addCircle(x + k * .35f, y - k * .15f, k * .9f, Path.Direction.CCW);
+                c.drawPath(p, fill); c.drawCircle(x + k * .55f, y + k * .1f, k * .12f, fill); break; }
             case 7: // pause: two bars
                 c.drawRoundRect(x - k * .6f, y - k * .75f, x - k * .15f, y + k * .75f, k * .12f, k * .12f, fill);
                 c.drawRoundRect(x + k * .15f, y - k * .75f, x + k * .6f, y + k * .75f, k * .12f, k * .12f, fill); break;
@@ -182,7 +179,9 @@ public final class HadesPadView extends View {
             case 10: arrow(c, x, y, k, 0, -1); break;
             case 11: arrow(c, x, y, k, 0, 1); break;
             case 12: arrow(c, x, y, k, -1, 0); break;
-            case 13: arrow(c, x, y, k, 1, 0); break;
+            case 13: { // inventory: satchel
+                p.addRoundRect(x - k * .95f, y - k * .35f, x + k * .95f, y + k * 1.0f, k * .3f, k * .3f, Path.Direction.CW);
+                c.drawPath(p, fill); c.drawArc(x - k * .5f, y - k * 1.0f, x + k * .5f, y + k * .1f, 180, 180, false, line); break; }
             case 14: // confirm: check
                 p.moveTo(x - k * .8f, y); p.lineTo(x - k * .2f, y + k * .6f); p.lineTo(x + k * .9f, y - k * .6f); c.drawPath(p, line); break;
             case 15: // back: left arrow with a tail
