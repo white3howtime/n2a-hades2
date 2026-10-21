@@ -47,7 +47,12 @@ public final class HadesPadView extends View {
     private long lastButtons = -1;
     /** Buttons fade to IDLE_ALPHA this long after the last touch, so they stop hiding game text; any touch brings them back. */
     private static final long FADE_AFTER_MS = 2000, FADE_MS = 500; private static final float IDLE_ALPHA = .25f;
-    private long lastTouch = android.os.SystemClock.uptimeMillis();
+    private static volatile long lastTouch = android.os.SystemClock.uptimeMillis();
+    /** Shared with the gear button so every on-screen control fades together. */
+    public static void touched() { lastTouch = android.os.SystemClock.uptimeMillis(); }
+    public static long idleMs() { return android.os.SystemClock.uptimeMillis() - lastTouch; }
+    public static float fadeAlpha(long idle) { return idle < FADE_AFTER_MS ? 1f : Math.max(IDLE_ALPHA, 1f - (1f - IDLE_ALPHA) * (idle - FADE_AFTER_MS) / FADE_MS); }
+    public static long nextRedrawMs(long idle) { return idle < FADE_AFTER_MS ? FADE_AFTER_MS - idle : fadeAlpha(idle) > IDLE_ALPHA ? 16 : -1; }
     private int lastLx, lastLy, lastRx, lastRy;
 
     public HadesPadView(Context context, BooleanSupplier ready, Sink sink) {
@@ -79,7 +84,7 @@ public final class HadesPadView extends View {
 
     @Override public boolean onTouchEvent(MotionEvent e) {
         if (!active || !ready.getAsBoolean()) { if (lastButtons != 0) cancel(); return false; }
-        lastTouch = android.os.SystemClock.uptimeMillis();
+        touched();
         int action = e.getActionMasked();
         boolean cancelled = action == MotionEvent.ACTION_CANCEL;
         int skip = action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_POINTER_UP ? e.getActionIndex() : -1;
@@ -109,8 +114,7 @@ public final class HadesPadView extends View {
         int n = (int) vis[0], t = 1 + 5 * 20;
         float dp = getResources().getDisplayMetrics().density;
         boolean menu = vis[t + 11] != 0;
-        long idle = android.os.SystemClock.uptimeMillis() - lastTouch;
-        float alpha = idle < FADE_AFTER_MS ? 1f : Math.max(IDLE_ALPHA, 1f - (1f - IDLE_ALPHA) * (idle - FADE_AFTER_MS) / FADE_MS);
+        long idle = idleMs(); float alpha = fadeAlpha(idle);
         if (alpha < 1f) c.saveLayerAlpha(0, 0, getWidth(), getHeight(), (int) (alpha * 255));
         for (int i = 0; i < n; i++) {
             int btn = (int) vis[1 + 5 * i]; float cx = vis[2 + 5 * i], cy = vis[3 + 5 * i], r = vis[4 + 5 * i];
@@ -127,7 +131,7 @@ public final class HadesPadView extends View {
             fill.setColor(0xB0FFFFFF); c.drawCircle(vis[t + 3], vis[t + 4], r * .45f, fill);
         }
         if (alpha < 1f) c.restore();
-        if (alpha > IDLE_ALPHA) postInvalidateDelayed(idle < FADE_AFTER_MS ? FADE_AFTER_MS - idle : 16);   // redraw when the fade starts, then per frame until it ends
+        long next = nextRedrawMs(idle); if (next >= 0) postInvalidateDelayed(next);   // redraw when the fade starts, then per frame until it ends
     }
 
     /** Soft dark glass disc with a thin light rim and a drop shadow; solid light when pressed. */
