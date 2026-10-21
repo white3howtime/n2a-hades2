@@ -10,6 +10,12 @@ re-implemented on top of Android and Vulkan. There is no emulator, no JIT and no
 > No game code, assets, shaders, keys or firmware are included. You must dump the game from a Switch you own and prepare the files yourself
 > (see [Preparing your own game files](#preparing-your-own-game-files)). This project is not affiliated with or endorsed by Supergiant Games or Nintendo.
 
+## Screenshots
+
+Running natively on a Snapdragon 8 Elite phone (2640×1216, rendered 1562×720, ~60 FPS): moving, attack, special, cast, dash and hex in the Crossroads, with the touch controls and their Switch key badges. Game art belongs to Supergiant Games.
+
+![Gameplay on the phone](docs/screenshots/gameplay.jpg)
+
 ## Based on
 
 This project is built on top of **[dodola/d2r-mobile](https://github.com/dodola/d2r-mobile)** (MIT licence), a native Android/iOS port of another Switch title.

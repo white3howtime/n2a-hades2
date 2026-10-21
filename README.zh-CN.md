@@ -10,6 +10,12 @@ Switch 二进制在构建期被改写，直接在手机 CPU 上运行；Switch �
 > 仓库里没有任何游戏代码、资源、着色器、密钥或固件。你需要从自己拥有的 Switch 上导出游戏并自行准备文件
 > （见 [准备你自己的游戏文件](#准备你自己的游戏文件)）。本项目与 Supergiant Games、任天堂没有任何关联，也未获其认可。
 
+## 截图
+
+在骁龙 8 Elite 手机上原生运行（屏幕 2640×1216，渲染 1562×720，约 60 FPS）：十字路口里的移动、攻击、特技、法阵、冲刺和巫咒，以及带 Switch 按键角标的触控按钮。游戏画面版权归 Supergiant Games 所有。
+
+![手机上的游戏画面](docs/screenshots/gameplay.jpg)
+
 ## 基于
 
 本项目建立在 **[dodola/d2r-mobile](https://github.com/dodola/d2r-mobile)**（MIT 许可）之上，它是另一款 Switch 游戏的安卓/iOS 原生移植。
