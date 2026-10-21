@@ -42,13 +42,17 @@ final class RendererSettingsDialog {
         Switch fillScreen=option(body,"铺满全屏","开启后游戏按手机屏幕比例原生渲染，不拉伸画面（切换后需重启游戏生效）；关闭则为 16:9 并留黑边。");
         fillScreen.setChecked(ScreenMode.fill(activity));
         fillScreen.setOnCheckedChangeListener((v,on)->{ScreenMode.setFill(activity,on);View vp=activity.findViewById(android.R.id.content);if(vp!=null)relayout(vp);});
-        text(body,"按钮",18);
-        Switch fade=option(body,"按钮自动淡出","无操作一段时间后，屏幕上的所有按钮变淡以免遮挡画面，触摸后恢复。");
-        fade.setChecked(ScreenMode.fade(activity));
+        text(body,"按钮隐藏",18);
+        RadioGroup hide=new RadioGroup(activity);hide.setOrientation(LinearLayout.HORIZONTAL);body.addView(hide);
+        RadioButton[] modes={qualityOption(hide,"关闭"),qualityOption(hide,"淡出"),qualityOption(hide,"隐藏")};
+        for(RadioButton m:modes)m.setLayoutParams(new RadioGroup.LayoutParams(0,-2,1));
+        modes[ScreenMode.fadeMode(activity)].setChecked(true);
+        text(body,"无操作一段时间后，淡出：屏幕上的按钮变淡；隐藏：按钮完全消失（设置按钮仍只淡出）。触摸后恢复。",14);
         TextView fadeLabel=text(body,"",14);SeekBar fadeBar=new SeekBar(activity);fadeBar.setMax(9);fadeBar.setProgress(ScreenMode.fadeSecs(activity)-1);
         body.addView(fadeBar,new LinearLayout.LayoutParams(-1,dp(40)));
-        Runnable applyFade=()->{int s=fadeBar.getProgress()+1;fadeLabel.setText("淡出等待时间："+s+" 秒");fadeBar.setEnabled(fade.isChecked());ScreenMode.setFade(activity,fade.isChecked(),s);};
-        applyFade.run();fade.setOnCheckedChangeListener((v,on)->applyFade.run());
+        Runnable applyFade=()->{int s=fadeBar.getProgress()+1,m=0;for(int i=0;i<3;i++)if(modes[i].isChecked())m=i;
+            fadeLabel.setText("等待时间："+s+" 秒");fadeBar.setEnabled(m!=0);ScreenMode.setFade(activity,m,s);};
+        applyFade.run();hide.setOnCheckedChangeListener((g,id)->applyFade.run());
         fadeBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
             public void onProgressChanged(SeekBar b,int p,boolean user){applyFade.run();}
             public void onStartTrackingTouch(SeekBar b){}public void onStopTrackingTouch(SeekBar b){}});

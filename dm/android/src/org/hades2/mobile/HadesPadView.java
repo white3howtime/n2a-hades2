@@ -46,16 +46,21 @@ public final class HadesPadView extends View {
     private boolean active = true;
     private long lastButtons = -1;
     /** Buttons fade to IDLE_ALPHA this long after the last touch, so they stop hiding game text; any touch brings them back. */
-    private static final long FADE_MS = 500; private static final float IDLE_ALPHA = .25f; private static volatile long fadeAfterMs = 1000;   // <= 0: never fade private static final float IDLE_ALPHA = .25f;
+    private static final long FADE_MS = 500; private static final float IDLE_ALPHA = .25f; private static volatile long fadeAfterMs = 1000;   // <= 0: never fade
+    private static volatile int fadeMode = 1;           // 0 off, 1 fade to IDLE_ALPHA, 2 hide (the gear still only fades) private static final float IDLE_ALPHA = .25f;
     private static volatile long lastTouch = android.os.SystemClock.uptimeMillis();
     /** Shared with the gear button so every on-screen control fades together. */
     public static android.view.View follower;   // the gear button: redrawn on every touch so it comes back too
-    public static void touched() { lastTouch = android.os.SystemClock.uptimeMillis(); if (follower != null) follower.postInvalidate(); }
-    /** Idle time before the fade starts; <= 0 disables fading. */
-    public static void setFadeAfter(long ms) { fadeAfterMs = ms; touched(); }
+    private static volatile HadesPadView self;   // redrawn too, so a mode change shows without a touch on the pad
+    public static void touched() { lastTouch = android.os.SystemClock.uptimeMillis(); if (follower != null) follower.postInvalidate(); if (self != null) self.postInvalidate(); }
+    @Override protected void onAttachedToWindow() { super.onAttachedToWindow(); self = this; }
+    @Override protected void onDetachedFromWindow() { if (self == this) self = null; super.onDetachedFromWindow(); }
+    /** Mode 0 off, 1 fade, 2 hide; ms is the idle time before it starts. */
+    public static void setFade(int mode, long ms) { fadeMode = mode; fadeAfterMs = mode == 0 ? 0 : ms; touched(); }
+    private static float floor(boolean gear) { return gear || fadeMode != 2 ? IDLE_ALPHA : 0f; }
     public static long idleMs() { return android.os.SystemClock.uptimeMillis() - lastTouch; }
-    public static float fadeAlpha(long idle) { long after = fadeAfterMs; return after <= 0 || idle < after ? 1f : Math.max(IDLE_ALPHA, 1f - (1f - IDLE_ALPHA) * (idle - after) / FADE_MS); }
-    public static long nextRedrawMs(long idle) { long after = fadeAfterMs; if (after <= 0) return -1; return idle < after ? after - idle : fadeAlpha(idle) > IDLE_ALPHA ? 16 : -1; }
+    public static float fadeAlpha(long idle, boolean gear) { long after = fadeAfterMs; float lo = floor(gear); return after <= 0 || idle < after ? 1f : Math.max(lo, 1f - (1f - lo) * (idle - after) / FADE_MS); }
+    public static long nextRedrawMs(long idle, boolean gear) { long after = fadeAfterMs; if (after <= 0) return -1; return idle < after ? after - idle : fadeAlpha(idle, gear) > floor(gear) ? 16 : -1; }
     private int lastLx, lastLy, lastRx, lastRy;
 
     public HadesPadView(Context context, BooleanSupplier ready, Sink sink) {
@@ -117,7 +122,7 @@ public final class HadesPadView extends View {
         int n = (int) vis[0], t = 1 + 5 * 20;
         float dp = getResources().getDisplayMetrics().density;
         boolean menu = vis[t + 11] != 0;
-        long idle = idleMs(); float alpha = fadeAlpha(idle);
+        long idle = idleMs(); float alpha = fadeAlpha(idle, false);
         if (alpha < 1f) c.saveLayerAlpha(0, 0, getWidth(), getHeight(), (int) (alpha * 255));
         for (int i = 0; i < n; i++) {
             int btn = (int) vis[1 + 5 * i]; float cx = vis[2 + 5 * i], cy = vis[3 + 5 * i], r = vis[4 + 5 * i];
@@ -135,7 +140,7 @@ public final class HadesPadView extends View {
             fill.setColor(0xB0FFFFFF); c.drawCircle(vis[t + 3], vis[t + 4], r * .45f, fill);
         }
         if (alpha < 1f) c.restore();
-        long next = nextRedrawMs(idle); if (next >= 0) postInvalidateDelayed(next);   // redraw when the fade starts, then per frame until it ends
+        long next = nextRedrawMs(idle, false); if (next >= 0) postInvalidateDelayed(next);   // redraw when the fade starts, then per frame until it ends
     }
 
     /** Switch key printed in the game's own prompts, so a prompt like "R" can be matched to its on-screen button. Default mapping of hades_pad.c. */

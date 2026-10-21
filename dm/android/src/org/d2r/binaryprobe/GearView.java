@@ -21,7 +21,7 @@ final class GearView extends View {
     @Override public boolean onTouchEvent(android.view.MotionEvent e) { org.hades2.mobile.HadesPadView.touched(); invalidate(); return super.onTouchEvent(e); }
 
     @Override protected void onDraw(Canvas c) {
-        long idle = org.hades2.mobile.HadesPadView.idleMs(); float alpha = org.hades2.mobile.HadesPadView.fadeAlpha(idle);
+        long idle = org.hades2.mobile.HadesPadView.idleMs(); float alpha = org.hades2.mobile.HadesPadView.fadeAlpha(idle, true);
         if (alpha < 1f) c.saveLayerAlpha(0, 0, getWidth(), getHeight(), (int) (alpha * 255));
         float dp = getResources().getDisplayMetrics().density;
         float x = getWidth() / 2f, y = getHeight() / 2f, r = Math.min(x, y) - dp * 1.5f;
@@ -40,6 +40,6 @@ final class GearView extends View {
         p.addCircle(x, y, k * 1.05f, android.graphics.Path.Direction.CW); p.addCircle(x, y, k * .42f, android.graphics.Path.Direction.CCW);
         c.drawPath(p, fill);
         if (alpha < 1f) c.restore();
-        long next = org.hades2.mobile.HadesPadView.nextRedrawMs(idle); if (next >= 0) postInvalidateDelayed(next);
+        long next = org.hades2.mobile.HadesPadView.nextRedrawMs(idle, true); if (next >= 0) postInvalidateDelayed(next);
     }
 }
