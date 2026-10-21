@@ -142,7 +142,7 @@ public final class HadesPadView extends View {
     private static String keyName(int btn) {
         switch (btn) {
             case 0: return "Y"; case 1: return "X"; case 2: return "A"; case 3: return "B"; case 4: return "R"; case 18: return "L";
-            case 5: return "ZL"; case 6: return "ZR"; case 7: return "+"; case 13: return "▶";
+            case 5: return "ZL"; case 6: return "ZR"; case 7: return "+"; case 12: return "◀"; case 13: return "▶";
             default: return null;
         }
     }

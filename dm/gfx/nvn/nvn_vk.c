@@ -4380,12 +4380,15 @@ void dm_vk_set_layer_crop(int x,int y,int width,int height) {
 }
 /* Block until a Surface other than `lost` exists (VK_NULL_HANDLE: any). */
 static void present_surface_wait(VkSurfaceKHR lost) {
+    uint64_t t0=dm_android_nvn_clock_ns();int logged=0;
     for(;;){pthread_mutex_lock(&G.lock);VkSurfaceKHR cur=G.surface;pthread_mutex_unlock(&G.lock);
-        if(cur && cur!=lost)return;usleep(20000);}
+        if(cur && cur!=lost){if(logged)fprintf(stderr,"[nvn-vulkan] SURFACE_WAIT done after %.0f ms\n",(dm_android_nvn_clock_ns()-t0)/1e6);return;}
+        if(!logged){logged=1;fprintf(stderr,"[nvn-vulkan] SURFACE_WAIT begin\n");}usleep(20000);}
 }
 uint64_t mtl_present(const tex_t *source,double period,const int crop[4]) {
     if(present_cpu_depth++==0)present_cpu_started=dm_android_nvn_thread_cpu_ns();
     uint64_t present_started=dm_android_nvn_clock_ns();G.seg_index=0;
+    { static uint64_t last_present_ns; if(last_present_ns && present_started-last_present_ns>1000000000ull)fprintf(stderr,"[nvn-vulkan] PRESENT_GAP %.0f ms\n",(present_started-last_present_ns)/1e6); last_present_ns=present_started; }
     (void)period;present_surface_wait(VK_NULL_HANDLE);sub_begin_ctx(&G.submission_slot2);
     VTexture *t=texture_get(source,0);if(aspect(t->format)!=VK_IMAGE_ASPECT_COLOR_BIT)die("present depth texture",t->format);
     swapchain_make(t->format);

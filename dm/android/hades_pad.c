@@ -22,7 +22,7 @@ static const struct { const char *name; unsigned modes; int anchor; float dx, dy
     [HP_MODE]      = { "MODE",      0, AN_T, -108,  28, 17, 0 },
     [HP_DPAD_UP]   = { "DPAD_UP",   0, AN_L,    0, -48, 24, 0 },
     [HP_DPAD_DOWN] = { "DPAD_DOWN", 0, AN_L,    0,  48, 24, 0 },
-    [HP_DPAD_LEFT] = { "DPAD_LEFT", 0, AN_L,  -48,   0, 24, 0 },
+    [HP_DPAD_LEFT] = { "DPAD_LEFT", M_PLAY, AN_T, -124,  34, 17, 0 },   /* blessing details */
     [HP_DPAD_RIGHT]= { "DPAD_RIGHT",M_PLAY, AN_T,  -84,  34, 17, 0 },
     [HP_CONFIRM]   = { "CONFIRM",   0, AN_R,   48,   0, 24, 0 },
     [HP_BACK]      = { "BACK",      0, AN_R,    0,  48, 24, 0 },
