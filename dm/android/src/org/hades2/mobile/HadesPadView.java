@@ -124,6 +124,7 @@ public final class HadesPadView extends View {
             int ink = pressed ? 0xFF10141A : 0xA6FFFFFF;
             line.setColor(ink); fill.setColor(ink); fill.setShader(null);
             icon(c, btn, cx, cy, r, menu);
+            badge(c, btn, cx, cy, r, dp);
         }
         if (vis[t] != 0) {
             float r = vis[t + 5];
@@ -133,6 +134,26 @@ public final class HadesPadView extends View {
         }
         if (alpha < 1f) c.restore();
         long next = nextRedrawMs(idle); if (next >= 0) postInvalidateDelayed(next);   // redraw when the fade starts, then per frame until it ends
+    }
+
+    /** Switch key printed in the game's own prompts, so a prompt like "R" can be matched to its on-screen button. Default mapping of hades_pad.c. */
+    private static String keyName(int btn) {
+        switch (btn) {
+            case 0: return "Y"; case 1: return "X"; case 2: return "A"; case 3: return "B"; case 4: return "R";
+            case 5: return "ZL"; case 6: return "ZR"; case 7: return "+"; case 13: return "▶";
+            default: return null;
+        }
+    }
+
+    /** Small pill at the button's upper right carrying that key name. */
+    private void badge(Canvas c, int btn, float cx, float cy, float r, float dp) {
+        String s = keyName(btn); if (s == null) return;
+        float h = Math.max(15f * dp, r * .62f), bx = cx + r * .72f, by = cy - r * .72f;
+        text.setTextSize(h * .62f); text.setTypeface(android.graphics.Typeface.DEFAULT_BOLD); text.setColor(0xF2FFFFFF);
+        float w = Math.max(h, text.measureText(s) + h * .5f);
+        fill.setShader(null); fill.setColor(0xCC10141A); c.drawRoundRect(bx - w / 2, by - h / 2, bx + w / 2, by + h / 2, h / 2, h / 2, fill);
+        line.setStyle(Paint.Style.STROKE); line.setStrokeWidth(1f * dp); line.setColor(0x99FFFFFF); c.drawRoundRect(bx - w / 2, by - h / 2, bx + w / 2, by + h / 2, h / 2, h / 2, line);
+        c.drawText(s, bx, by + h * .22f, text);
     }
 
     /** Soft dark glass disc with a thin light rim and a drop shadow; solid light when pressed. */
