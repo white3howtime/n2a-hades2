@@ -1,5 +1,5 @@
 diff --git a/dm/android/src/org/d2r/binaryprobe/GameActivity.java b/dm/android/src/org/d2r/binaryprobe/GameActivity.java
-index c3bae83..49096e0 100644
+index c3bae83..49f9190 100644
 --- a/dm/android/src/org/d2r/binaryprobe/GameActivity.java
 +++ b/dm/android/src/org/d2r/binaryprobe/GameActivity.java
 @@ -48,6 +48,8 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
@@ -78,7 +78,7 @@ index c3bae83..49096e0 100644
 +        View system=new GearView(this);systemControl=system;
 +        refreshSystemLabel();
 +        FrameLayout.LayoutParams systemParams=new FrameLayout.LayoutParams(dp(34),dp(34),Gravity.RIGHT|Gravity.TOP);
-+        systemParams.rightMargin=dp(91);systemParams.topMargin=dp(11);   // Pause, then the inventory button, then this one
++        systemParams.rightMargin=dp(107);systemParams.topMargin=dp(17);   // Pause, then the inventory button, then this one
          system.setOnClickListener(v -> {
              if(!configured||failed||rendererSettings!=null||keyboardDialog!=null||saveFailureDialog!=null)return;
              actionButtons=0;if(inputReady)nativeActions(0,0,0,0,0);touchControls.cancel();
