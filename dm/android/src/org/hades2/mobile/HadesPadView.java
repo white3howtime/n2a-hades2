@@ -238,10 +238,15 @@ public final class HadesPadView extends View {
                 c.drawLine(x + k * .8f, y, x - k * .8f, y, line); c.drawLine(x - k * .8f, y, x - k * .2f, y - k * .6f, line); c.drawLine(x - k * .8f, y, x - k * .2f, y + k * .6f, line); break;
             case 16: case 17: // option 1/2: one or two dots
                 if (btn == 16) c.drawPoint(x, y, line); else { c.drawPoint(x - k * .4f, y, line); c.drawPoint(x + k * .4f, y, line); } break;
-            case 18: { // greet (L): smiling face
-                c.drawCircle(x, y, k * 1.0f, line);
-                c.drawPoint(x - k * .35f, y - k * .25f, line); c.drawPoint(x + k * .35f, y - k * .25f, line);
-                c.drawArc(x - k * .55f, y - k * .4f, x + k * .55f, y + k * .55f, 25, 130, false, line); break; }
+            case 18: { // greet (L): raised open hand, tilted
+                c.save(); c.rotate(12, x, y);
+                float w = line.getStrokeWidth(), fw = k * .27f; line.setStrokeWidth(fw);
+                float[] tops = { .75f, 1.05f, .95f, .7f };
+                for (int i = 0; i < 4; i++) { float fx = x + (i - 1.5f) * k * .31f; c.drawLine(fx, y + k * .05f, fx, y - k * tops[i], line); }
+                c.drawLine(x - k * .5f, y + k * .35f, x - k * .95f, y - k * .1f, line);   // thumb
+                line.setStrokeWidth(w);
+                c.drawRoundRect(x - k * .62f, y - k * .1f, x + k * .62f, y + k * .95f, k * .45f, k * .45f, fill);
+                c.restore(); break; }
             case 19: { // page: double chevron
                 float d = 1;
                 for (int i = 0; i < 2; i++) { float o = (i - .5f) * k * .9f * d; p.moveTo(x + o - d * k * .3f, y - k * .6f); p.lineTo(x + o + d * k * .3f, y); p.lineTo(x + o - d * k * .3f, y + k * .6f); }
