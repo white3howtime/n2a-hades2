@@ -274,7 +274,7 @@ static struct {
     NvnVkPipelineCacheKey pipeline_cache_key;
     uint8_t *shader_index; size_t index_bytes;uint32_t shader_index_version;int shader_code_identity; char shader_root[1024]; ANativeWindow *window;int vi_crop[4];
     ShaderEntry *shader_entries;size_t shader_entry_capacity;ShaderLookup shader_lookup[SHADER_LOOKUP];
-    VkSurfaceKHR surface; VkSwapchainKHR swapchain; VkImage *swap_images; VkImageLayout *swap_layouts;
+    VkSurfaceKHR surface; int swap_lost,swap_stale; VkSwapchainKHR swapchain; VkImage *swap_images; VkImageLayout *swap_layouts;
     uint32_t nswap; VkFormat swap_format; VkExtent2D swap_extent; int display_hz;
     VTexture present_encoding_bridge;
     _Atomic uint64_t fence,completed,present_count,frame; uint64_t draws,pass_count,uploads,pool_adds;
@@ -4293,7 +4293,7 @@ void dm_vk_set_window(void *native) {
         pthread_mutex_unlock(&G.lock);return;
     }
     swapchain_destroy_locked();if(G.surface)vkDestroySurfaceKHR(G.instance,G.surface,NULL);
-    if(G.window)ANativeWindow_release(G.window);G.window=native;G.swapchain=VK_NULL_HANDLE;G.surface=VK_NULL_HANDLE;G.nswap=0;
+    if(G.window)ANativeWindow_release(G.window);G.window=native;G.swapchain=VK_NULL_HANDLE;G.surface=VK_NULL_HANDLE;G.nswap=0;G.swap_lost=G.swap_stale=0;
     if(G.window){ANativeWindow_acquire(G.window);VkAndroidSurfaceCreateInfoKHR i={.sType=VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR,.window=G.window};
         PFN_vkCreateAndroidSurfaceKHR create=(PFN_vkCreateAndroidSurfaceKHR)dm_vk_get(G.instance,"vkCreateAndroidSurfaceKHR");
         if(!create)die("Android Vulkan surface entry",0);CHECK(create(G.instance,&i,NULL,&G.surface)); }
@@ -4378,21 +4378,17 @@ void dm_vk_set_layer_crop(int x,int y,int width,int height) {
     pthread_mutex_lock(&G.lock);G.vi_crop[0]=x;G.vi_crop[1]=y;G.vi_crop[2]=width;G.vi_crop[3]=height;pthread_mutex_unlock(&G.lock);
     fprintf(stderr,"[nvn-vulkan] VI_LAYER_CROP %d,%d %dx%d\n",x,y,width,height);
 }
-/* Block until a Surface other than `lost` exists (VK_NULL_HANDLE: any). */
-static void present_surface_wait(VkSurfaceKHR lost) {
-    uint64_t t0=dm_android_nvn_clock_ns();int logged=0;
-    for(;;){pthread_mutex_lock(&G.lock);VkSurfaceKHR cur=G.surface;pthread_mutex_unlock(&G.lock);
-        if(cur && cur!=lost){if(logged)fprintf(stderr,"[nvn-vulkan] SURFACE_WAIT done after %.0f ms\n",(dm_android_nvn_clock_ns()-t0)/1e6);return;}
-        if(!logged){logged=1;fprintf(stderr,"[nvn-vulkan] SURFACE_WAIT begin\n");}usleep(20000);}
-}
 uint64_t mtl_present(const tex_t *source,double period,const int crop[4]) {
     if(present_cpu_depth++==0)present_cpu_started=dm_android_nvn_thread_cpu_ns();
     uint64_t present_started=dm_android_nvn_clock_ns();G.seg_index=0;
     { static uint64_t last_present_ns; if(last_present_ns && present_started-last_present_ns>1000000000ull)fprintf(stderr,"[nvn-vulkan] PRESENT_GAP %.0f ms\n",(present_started-last_present_ns)/1e6); last_present_ns=present_started; }
-    (void)period;present_surface_wait(VK_NULL_HANDLE);sub_begin_ctx(&G.submission_slot2);
+    (void)period;sub_begin_ctx(&G.submission_slot2);
     VTexture *t=texture_get(source,0);if(aspect(t->format)!=VK_IMAGE_ASPECT_COLOR_BIT)die("present depth texture",t->format);
-    swapchain_make(t->format);
-    if(G.present_count<2 || G.trace_frame)fprintf(stderr,"[nvn-vulkan] PRESENT_FORMAT frame=%llu source=%llu source_mem=%p source_format=%u swap_format=%u source_extent=%u,%u swap_extent=%u,%u\n",(unsigned long long)G.present_count+1,(unsigned long long)source->serial,source->mem,t->format,G.swap_format,t->width,t->height,G.swap_extent.width,G.swap_extent.height);
+    /* Screen lock destroys the Surface; this runs with G.lock held, so a frame that cannot be shown is submitted without presenting and dropped. */
+    int skip=!G.window||G.swap_lost;
+    if(!skip&&G.swap_stale){CHECK(cpu_work_queue_idle(G.queue));swapchain_destroy_locked();G.swap_stale=0;}
+    if(!skip)swapchain_make(t->format);
+    if(!skip&&(G.present_count<2 || G.trace_frame))fprintf(stderr,"[nvn-vulkan] PRESENT_FORMAT frame=%llu source=%llu source_mem=%p source_format=%u swap_format=%u source_extent=%u,%u swap_extent=%u,%u\n",(unsigned long long)G.present_count+1,(unsigned long long)source->serial,source->mem,t->format,G.swap_format,t->width,t->height,G.swap_extent.width,G.swap_extent.height);
     const char *capture_root=getenv("DM_FRAME_DIR");VBuffer capture={0};
     int capture_frame=capture_root && (G.trace_frame || (getenv("DM_CAPTURE_FRAMES") &&
         (G.present_count<4 || (G.present_count%120==0 && G.present_count<1000))));
@@ -4402,17 +4398,17 @@ uint64_t mtl_present(const tex_t *source,double period,const int crop[4]) {
     VkSemaphoreCreateInfo sem_info={.sType=VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};VkSemaphore available;
     CHECK(vkCreateSemaphore(G.device,&sem_info,NULL,&available));
     uint64_t acquire_wait=dm_android_nvn_work_wait_begin(DM_NVN_WAIT_ACQUIRE);
-    uint32_t index=0;VkResult acquired;VkSurfaceKHR used=G.surface;
-    for(;;){acquired=vkAcquireNextImageKHR(G.device,G.swapchain,UINT64_MAX,available,VK_NULL_HANDLE,&index);
-        if(acquired!=VK_ERROR_SURFACE_LOST_KHR && acquired!=VK_ERROR_OUT_OF_DATE_KHR)break;
-        /* Screen lock destroys the Surface under a frame in flight: park until the new one is published. */
-        pthread_mutex_lock(&G.lock);CHECK(cpu_work_queue_idle(G.queue));swapchain_destroy_locked();pthread_mutex_unlock(&G.lock);
-        present_surface_wait(acquired==VK_ERROR_SURFACE_LOST_KHR?used:VK_NULL_HANDLE);used=G.surface;swapchain_make(t->format);}
+    uint32_t index=0;VkResult acquired=VK_SUCCESS;
+    if(!skip){acquired=vkAcquireNextImageKHR(G.device,G.swapchain,UINT64_MAX,available,VK_NULL_HANDLE,&index);
+        if(acquired==VK_ERROR_SURFACE_LOST_KHR){G.swap_lost=1;skip=1;}
+        else if(acquired==VK_ERROR_OUT_OF_DATE_KHR){G.swap_stale=1;skip=1;}
+        else if(acquired!=VK_SUCCESS && acquired!=VK_SUBOPTIMAL_KHR)die("swapchain acquisition",acquired);}
     dm_android_nvn_work_wait_end(acquire_wait);G.pres_acq_ns+=dm_android_nvn_clock_ns()-present_started;
-    if(acquired!=VK_SUCCESS && acquired!=VK_SUBOPTIMAL_KHR)die("swapchain acquisition",acquired);
-    VkSemaphore finished=G.swap_finished[index];
+    VkSemaphore finished=skip?VK_NULL_HANDLE:G.swap_finished[index];
+    VkImageMemoryBarrier barrier;
+    if(!skip){
     texture_transition(t,VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-    VkImageMemoryBarrier barrier={.sType=VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,.oldLayout=G.swap_layouts[index],
+    barrier=(VkImageMemoryBarrier){.sType=VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,.oldLayout=G.swap_layouts[index],
        .newLayout=VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,.srcQueueFamilyIndex=VK_QUEUE_FAMILY_IGNORED,.dstQueueFamilyIndex=VK_QUEUE_FAMILY_IGNORED,
        .dstAccessMask=VK_ACCESS_TRANSFER_WRITE_BIT,.image=G.swap_images[index],.subresourceRange={VK_IMAGE_ASPECT_COLOR_BIT,0,1,0,1}};
     vkCmdPipelineBarrier(S.command,VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,VK_PIPELINE_STAGE_TRANSFER_BIT,0,0,NULL,0,NULL,1,&barrier);
@@ -4439,16 +4435,17 @@ uint64_t mtl_present(const tex_t *source,double period,const int crop[4]) {
     barrier.oldLayout=VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;barrier.newLayout=VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
     barrier.srcAccessMask=VK_ACCESS_TRANSFER_WRITE_BIT;barrier.dstAccessMask=0;
     vkCmdPipelineBarrier(S.command,VK_PIPELINE_STAGE_TRANSFER_BIT,VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,0,0,NULL,0,NULL,1,&barrier);
-    G.swap_layouts[index]=VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;CHECK(vkEndCommandBuffer(S.command));
-    VkPipelineStageFlags wait_stage=VK_PIPELINE_STAGE_TRANSFER_BIT;VkSubmitInfo si={.sType=VK_STRUCTURE_TYPE_SUBMIT_INFO,.waitSemaphoreCount=1,
+    G.swap_layouts[index]=VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;}
+    CHECK(vkEndCommandBuffer(S.command));
+    VkPipelineStageFlags wait_stage=VK_PIPELINE_STAGE_TRANSFER_BIT;VkSubmitInfo si={.sType=VK_STRUCTURE_TYPE_SUBMIT_INFO,.waitSemaphoreCount=skip?0:1,
       .pWaitSemaphores=&available,.pWaitDstStageMask=&wait_stage,.commandBufferCount=1,.pCommandBuffers=&S.command,
-      .signalSemaphoreCount=1,.pSignalSemaphores=&finished};
+      .signalSemaphoreCount=skip?0:1,.pSignalSemaphores=&finished};
     VkFence fence=S.gpu_fence;
     if(S.depth_input_guard_active)die("unchecked depth input guard reached presentation",S.epoch);
     CHECK(vkQueueSubmit(G.queue,1,&si,fence));S.ticket=++G.fence;S.phase=SUBMISSION_INFLIGHT;VkPresentInfoKHR pi={.sType=VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,.waitSemaphoreCount=1,
       .pWaitSemaphores=&finished,.swapchainCount=1,.pSwapchains=&G.swapchain,.pImageIndices=&index};
     uint64_t present_wait=dm_android_nvn_work_wait_begin(DM_NVN_WAIT_PRESENT);
-    VkResult presented=vkQueuePresentKHR(G.queue,&pi);dm_android_nvn_work_wait_end(present_wait);
+    VkResult presented=skip?VK_SUCCESS:vkQueuePresentKHR(G.queue,&pi);if(presented==VK_ERROR_SURFACE_LOST_KHR)G.swap_lost=1;else if(presented==VK_ERROR_OUT_OF_DATE_KHR)G.swap_stale=1;dm_android_nvn_work_wait_end(present_wait);
     if(presented!=VK_SUCCESS && presented!=VK_SUBOPTIMAL_KHR && presented!=VK_ERROR_SURFACE_LOST_KHR && presented!=VK_ERROR_OUT_OF_DATE_KHR)die("queue present",presented);
     int async_present=G.async_enabled&&!capture.b&&!G.trace_frame&&!S.ntrace_captures;
     if(async_present)S.present_available=available;
