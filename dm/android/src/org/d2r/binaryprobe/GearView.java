@@ -15,6 +15,7 @@ final class GearView extends View {
         fill.setColor(0x26000000);
         line.setStyle(Paint.Style.STROKE); line.setStrokeCap(Paint.Cap.ROUND); line.setStrokeWidth(1.5f * dp);
         setClickable(true); setFocusable(true);
+        org.hades2.mobile.HadesPadView.follower = this;
     }
 
     @Override public boolean onTouchEvent(android.view.MotionEvent e) { org.hades2.mobile.HadesPadView.touched(); invalidate(); return super.onTouchEvent(e); }

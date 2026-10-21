@@ -49,7 +49,8 @@ public final class HadesPadView extends View {
     private static final long FADE_AFTER_MS = 2000, FADE_MS = 500; private static final float IDLE_ALPHA = .25f;
     private static volatile long lastTouch = android.os.SystemClock.uptimeMillis();
     /** Shared with the gear button so every on-screen control fades together. */
-    public static void touched() { lastTouch = android.os.SystemClock.uptimeMillis(); }
+    public static android.view.View follower;   // the gear button: redrawn on every touch so it comes back too
+    public static void touched() { lastTouch = android.os.SystemClock.uptimeMillis(); if (follower != null) follower.postInvalidate(); }
     public static long idleMs() { return android.os.SystemClock.uptimeMillis() - lastTouch; }
     public static float fadeAlpha(long idle) { return idle < FADE_AFTER_MS ? 1f : Math.max(IDLE_ALPHA, 1f - (1f - IDLE_ALPHA) * (idle - FADE_AFTER_MS) / FADE_MS); }
     public static long nextRedrawMs(long idle) { return idle < FADE_AFTER_MS ? FADE_AFTER_MS - idle : fadeAlpha(idle) > IDLE_ALPHA ? 16 : -1; }
@@ -169,7 +170,7 @@ public final class HadesPadView extends View {
                 break; }
             case 3: // dash: double chevron
                 line.setStrokeWidth(Math.max(2.5f * dp, k * .36f));
-                for (int i = 0; i < 2; i++) { float o = (i - .5f) * k * 1.0f; p.moveTo(x + o - k * .4f, y - k * .75f); p.lineTo(x + o + k * .35f, y); p.lineTo(x + o - k * .4f, y + k * .75f); }
+                for (int i = 0; i < 2; i++) { float o = (i - .5f) * k * 1.0f; p.moveTo(x + o + k * .4f, y - k * .75f); p.lineTo(x + o - k * .35f, y); p.lineTo(x + o + k * .4f, y + k * .75f); }
                 c.drawPath(p, line); break;
             case 4: { // interact: speech bubble with three dots cut out
                 p.setFillType(Path.FillType.EVEN_ODD);
