@@ -165,7 +165,7 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
         View system=new GearView(this);systemControl=system;
         refreshSystemLabel();
         FrameLayout.LayoutParams systemParams=new FrameLayout.LayoutParams(dp(34),dp(34),Gravity.RIGHT|Gravity.TOP);
-        systemParams.rightMargin=dp(51);systemParams.topMargin=dp(11);   // the slot left of Pause
+        systemParams.rightMargin=dp(91);systemParams.topMargin=dp(11);   // Pause, then the inventory button, then this one
         system.setOnClickListener(v -> {
             if(!configured||failed||rendererSettings!=null||keyboardDialog!=null||saveFailureDialog!=null)return;
             actionButtons=0;if(inputReady)nativeActions(0,0,0,0,0);touchControls.cancel();

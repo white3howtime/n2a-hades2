@@ -180,11 +180,13 @@ public final class HadesPadView extends View {
             case 10: arrow(c, x, y, k, 0, -1); break;
             case 11: arrow(c, x, y, k, 0, 1); break;
             case 12: arrow(c, x, y, k, -1, 0); break;
-            case 13: // inventory: 2x2 grid
-                for (int i = 0; i < 2; i++) for (int j = 0; j < 2; j++)
-                    c.drawRoundRect(x + (i - 1) * k * .95f + (i == 0 ? -k * .05f : k * .05f), y + (j - 1) * k * .95f + (j == 0 ? -k * .05f : k * .05f),
-                        x + i * k * .95f + (i == 0 ? -k * .05f : k * .05f), y + j * k * .95f + (j == 0 ? -k * .05f : k * .05f), k * .18f, k * .18f, fill);
-                break;
+            case 13: { // inventory: drawstring pouch
+                p.setFillType(Path.FillType.EVEN_ODD);
+                p.addRoundRect(x - k * .62f, y - k * 1.15f, x + k * .62f, y - k * .85f, k * .12f, k * .12f, Path.Direction.CW);   // flared mouth
+                p.moveTo(x - k * .38f, y - k * .85f); p.lineTo(x + k * .38f, y - k * .85f); p.lineTo(x + k * .5f, y - k * .35f); p.lineTo(x - k * .5f, y - k * .35f); p.close();   // neck
+                p.addOval(x - k * 1.0f, y - k * .5f, x + k * 1.0f, y + k * 1.15f, Path.Direction.CW);   // belly
+                p.addRoundRect(x - k * .55f, y - k * .32f, x + k * .55f, y - k * .17f, k * .07f, k * .07f, Path.Direction.CCW);   // cord
+                c.drawPath(p, fill); break; }
             case 14: // confirm: check
                 p.moveTo(x - k * .8f, y); p.lineTo(x - k * .2f, y + k * .6f); p.lineTo(x + k * .9f, y - k * .6f); c.drawPath(p, line); break;
             case 15: // back: left arrow with a tail
