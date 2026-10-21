@@ -14,7 +14,7 @@ static const struct { const char *name; unsigned modes; int anchor; float dx, dy
     [HP_SPECIAL]   = { "SPECIAL",   M_PLAY, AN_R,  -76,  26, 24, 1 },
     [HP_CAST]      = { "CAST",      M_PLAY, AN_R,  -65, -46, 24, 1 },
     [HP_DASH]      = { "DASH",      M_PLAY, AN_R,   74,  26, 24, 0 },
-    [HP_INTERACT]  = { "INTERACT",  M_PLAY, AN_R,   96,-100, 22, 0 },
+    [HP_INTERACT]  = { "INTERACT",  M_PLAY, AN_R,   74,-108, 22, 0 },
     [HP_CALL]      = { "CALL",      M_PLAY, AN_R,   65, -46, 24, 0 },
     [HP_LOCK]      = { "LOCK",      M_PLAY, AN_R,    0, -80, 24, 0 },
     [HP_PAUSE]     = { "PAUSE",     M_PLAY, AN_T,  -28,  28, 17, 0 },

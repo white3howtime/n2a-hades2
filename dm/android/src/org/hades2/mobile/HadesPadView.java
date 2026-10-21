@@ -137,18 +137,23 @@ public final class HadesPadView extends View {
         line.setStyle(Paint.Style.STROKE);
         Path p = new Path();
         switch (btn) {
-            case 0: // attack: sword, tip to the upper right
-                c.save(); c.rotate(45, x, y);
-                p.moveTo(x, y - k * 1.3f); p.lineTo(x + k * .2f, y - k * .95f); p.lineTo(x + k * .2f, y + k * .3f); p.lineTo(x - k * .2f, y + k * .3f); p.lineTo(x - k * .2f, y - k * .95f); p.close();
-                c.drawPath(p, fill);
-                c.drawRoundRect(x - k * .62f, y + k * .34f, x + k * .62f, y + k * .56f, k * .1f, k * .1f, fill);
-                c.drawRoundRect(x - k * .1f, y + k * .56f, x + k * .1f, y + k * 1.0f, k * .05f, k * .05f, fill);
-                c.drawCircle(x, y + k * 1.12f, k * .16f, fill); c.restore(); break;
-            case 1: // special: sparkle
-                p.moveTo(x, y - k * 1.3f); p.quadTo(x, y, x + k * 1.3f, y); p.quadTo(x, y, x, y + k * 1.3f);
-                p.quadTo(x, y, x - k * 1.3f, y); p.quadTo(x, y, x, y - k * 1.3f); c.drawPath(p, fill); break;
-            case 2: // cast: orb in a ring
-                c.drawCircle(x, y, k * .95f, line); c.drawCircle(x, y, k * .38f, fill); break;
+            case 0: // attack: one big sword, tip to the upper right
+                c.save(); c.rotate(45, x, y); sword(c, x, y, k); c.restore(); break;
+            case 1: // special: two small crossed swords
+                c.save(); c.rotate(-35, x, y); sword(c, x, y, k * 1.05f); c.restore();
+                c.save(); c.rotate(35, x, y); sword(c, x, y, k * 1.05f); c.restore(); break;
+            case 2: { // cast: hexagram inside a ring
+                line.setStrokeWidth(Math.max(1.6f * dp, k * .12f)); c.drawCircle(x, y, k * 1.1f, line);
+                for (int s = 0; s < 2; s++) {
+                    Path tri = new Path();
+                    for (int i = 0; i < 3; i++) {
+                        double a = Math.toRadians(-90 + s * 60 + i * 120);   // hexagram = triangle + its mirror
+                        float px = x + (float) Math.cos(a) * k * 1.0f, py = y + (float) Math.sin(a) * k * 1.0f;
+                        if (i == 0) tri.moveTo(px, py); else tri.lineTo(px, py);
+                    }
+                    tri.close(); c.drawPath(tri, line);
+                }
+                break; }
             case 3: // dash: double chevron
                 line.setStrokeWidth(Math.max(2.5f * dp, k * .36f));
                 for (int i = 0; i < 2; i++) { float o = (i - .5f) * k * 1.0f; p.moveTo(x + o - k * .4f, y - k * .75f); p.lineTo(x + o + k * .35f, y); p.lineTo(x + o - k * .4f, y + k * .75f); }
@@ -164,10 +169,12 @@ public final class HadesPadView extends View {
                 float ex = x + k * .85f * .766f, ey = y - k * .85f * .643f;   // arc end at 320 degrees
                 p.moveTo(ex + .643f * k * .6f, ey + .766f * k * .6f); p.lineTo(ex + .766f * k * .5f, ey - .643f * k * .5f); p.lineTo(ex - .766f * k * .5f, ey + .643f * k * .5f); p.close();
                 c.drawPath(p, fill); break; }
-            case 6: { // hex: crescent moon
-                p.setFillType(Path.FillType.EVEN_ODD);
-                p.addCircle(x - k * .1f, y, k * 1.05f, Path.Direction.CW); p.addCircle(x + k * .35f, y - k * .15f, k * .9f, Path.Direction.CCW);
-                c.drawPath(p, fill); c.drawCircle(x + k * .55f, y + k * .1f, k * .12f, fill); break; }
+            case 6: { // hex: crescent moon, tilted
+                c.save(); c.rotate(-25, x, y);
+                Path outer = new Path(), inner = new Path();
+                outer.addCircle(x - k * .1f, y, k * 1.2f, Path.Direction.CW); inner.addCircle(x + k * .3f, y - k * .1f, k * 1.0f, Path.Direction.CW);
+                outer.op(inner, Path.Op.DIFFERENCE);   // EVEN_ODD would also fill the part of the inner circle outside the outer one
+                c.drawPath(outer, fill); c.restore(); break; }
             case 7: // pause: two bars
                 c.drawRoundRect(x - k * .6f, y - k * .75f, x - k * .15f, y + k * .75f, k * .12f, k * .12f, fill);
                 c.drawRoundRect(x + k * .15f, y - k * .75f, x + k * .6f, y + k * .75f, k * .12f, k * .12f, fill); break;
@@ -180,13 +187,14 @@ public final class HadesPadView extends View {
             case 10: arrow(c, x, y, k, 0, -1); break;
             case 11: arrow(c, x, y, k, 0, 1); break;
             case 12: arrow(c, x, y, k, -1, 0); break;
-            case 13: { // inventory: drawstring pouch
+            case 13: { // inventory: drawstring pouch with a crooked mouth
                 p.setFillType(Path.FillType.EVEN_ODD);
-                p.addRoundRect(x - k * .62f, y - k * 1.15f, x + k * .62f, y - k * .85f, k * .12f, k * .12f, Path.Direction.CW);   // flared mouth
-                p.moveTo(x - k * .38f, y - k * .85f); p.lineTo(x + k * .38f, y - k * .85f); p.lineTo(x + k * .5f, y - k * .35f); p.lineTo(x - k * .5f, y - k * .35f); p.close();   // neck
-                p.addOval(x - k * 1.0f, y - k * .5f, x + k * 1.0f, y + k * 1.15f, Path.Direction.CW);   // belly
-                p.addRoundRect(x - k * .55f, y - k * .32f, x + k * .55f, y - k * .17f, k * .07f, k * .07f, Path.Direction.CCW);   // cord
-                c.drawPath(p, fill); break; }
+                p.moveTo(x - k * .3f, y - k * .8f); p.lineTo(x + k * .5f, y - k * .75f); p.lineTo(x + k * .5f, y - k * .3f); p.lineTo(x - k * .5f, y - k * .3f); p.close();   // neck, leaning
+                p.addOval(x - k * 1.0f, y - k * .45f, x + k * 1.0f, y + k * 1.15f, Path.Direction.CW);   // belly
+                p.addRoundRect(x - k * .55f, y - k * .28f, x + k * .55f, y - k * .13f, k * .07f, k * .07f, Path.Direction.CCW);   // cord
+                c.drawPath(p, fill);
+                c.save(); c.rotate(-22, x - k * .05f, y - k * .85f);   // the mouth flops to one side
+                c.drawRoundRect(x - k * .75f, y - k * 1.1f, x + k * .55f, y - k * .8f, k * .14f, k * .14f, fill); c.restore(); break; }
             case 14: // confirm: check
                 p.moveTo(x - k * .8f, y); p.lineTo(x - k * .2f, y + k * .6f); p.lineTo(x + k * .9f, y - k * .6f); c.drawPath(p, line); break;
             case 15: // back: left arrow with a tail
@@ -198,6 +206,16 @@ public final class HadesPadView extends View {
                 for (int i = 0; i < 2; i++) { float o = (i - .5f) * k * .9f * d; p.moveTo(x + o - d * k * .3f, y - k * .6f); p.lineTo(x + o + d * k * .3f, y); p.lineTo(x + o - d * k * .3f, y + k * .6f); }
                 c.drawPath(p, line); break; }
         }
+    }
+
+    /** Upright sword, tip up, centred on (x, y). */
+    private void sword(Canvas c, float x, float y, float k) {
+        Path p = new Path();
+        p.moveTo(x, y - k * 1.3f); p.lineTo(x + k * .2f, y - k * .95f); p.lineTo(x + k * .2f, y + k * .3f); p.lineTo(x - k * .2f, y + k * .3f); p.lineTo(x - k * .2f, y - k * .95f); p.close();
+        c.drawPath(p, fill);
+        c.drawRoundRect(x - k * .62f, y + k * .34f, x + k * .62f, y + k * .56f, k * .1f, k * .1f, fill);
+        c.drawRoundRect(x - k * .1f, y + k * .56f, x + k * .1f, y + k * 1.0f, k * .05f, k * .05f, fill);
+        c.drawCircle(x, y + k * 1.12f, k * .16f, fill);
     }
 
     private void arrow(Canvas c, float x, float y, float k, float dx, float dy) {
