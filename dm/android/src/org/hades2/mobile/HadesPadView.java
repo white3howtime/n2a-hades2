@@ -159,10 +159,11 @@ public final class HadesPadView extends View {
                 p.moveTo(x - k * .5f, y + k * .5f); p.lineTo(x - k * .6f, y + k * 1.1f); p.lineTo(x + k * .1f, y + k * .5f); p.close();
                 for (int i = -1; i <= 1; i++) p.addCircle(x + i * k * .55f, y - k * .15f, k * .14f, Path.Direction.CCW);
                 c.drawPath(p, fill); break; }
-            case 5: // call: horn
-                p.moveTo(x - k * 1.0f, y - k * .35f); p.lineTo(x - k * .25f, y - k * .35f); p.lineTo(x + k * .65f, y - k * 1.0f); p.lineTo(x + k * .65f, y + k * 1.0f);
-                p.lineTo(x - k * .25f, y + k * .35f); p.lineTo(x - k * 1.0f, y + k * .35f); p.close(); c.drawPath(p, fill);
-                c.drawArc(x + k * .2f, y - k * .6f, x + k * 1.25f, y + k * .6f, -50, 100, false, line); break;
+            case 5: { // auto-attack (ZL): loop arrow
+                c.drawArc(x - k * .85f, y - k * .85f, x + k * .85f, y + k * .85f, 40, 280, false, line);
+                float ex = x + k * .85f * .766f, ey = y - k * .85f * .643f;   // arc end at 320 degrees
+                p.moveTo(ex + .643f * k * .6f, ey + .766f * k * .6f); p.lineTo(ex + .766f * k * .5f, ey - .643f * k * .5f); p.lineTo(ex - .766f * k * .5f, ey + .643f * k * .5f); p.close();
+                c.drawPath(p, fill); break; }
             case 6: { // hex: crescent moon
                 p.setFillType(Path.FillType.EVEN_ODD);
                 p.addCircle(x - k * .1f, y, k * 1.05f, Path.Direction.CW); p.addCircle(x + k * .35f, y - k * .15f, k * .9f, Path.Direction.CCW);
@@ -179,9 +180,11 @@ public final class HadesPadView extends View {
             case 10: arrow(c, x, y, k, 0, -1); break;
             case 11: arrow(c, x, y, k, 0, 1); break;
             case 12: arrow(c, x, y, k, -1, 0); break;
-            case 13: { // inventory: satchel
-                p.addRoundRect(x - k * .95f, y - k * .35f, x + k * .95f, y + k * 1.0f, k * .3f, k * .3f, Path.Direction.CW);
-                c.drawPath(p, fill); c.drawArc(x - k * .5f, y - k * 1.0f, x + k * .5f, y + k * .1f, 180, 180, false, line); break; }
+            case 13: // inventory: 2x2 grid
+                for (int i = 0; i < 2; i++) for (int j = 0; j < 2; j++)
+                    c.drawRoundRect(x + (i - 1) * k * .95f + (i == 0 ? -k * .05f : k * .05f), y + (j - 1) * k * .95f + (j == 0 ? -k * .05f : k * .05f),
+                        x + i * k * .95f + (i == 0 ? -k * .05f : k * .05f), y + j * k * .95f + (j == 0 ? -k * .05f : k * .05f), k * .18f, k * .18f, fill);
+                break;
             case 14: // confirm: check
                 p.moveTo(x - k * .8f, y); p.lineTo(x - k * .2f, y + k * .6f); p.lineTo(x + k * .9f, y - k * .6f); c.drawPath(p, line); break;
             case 15: // back: left arrow with a tail

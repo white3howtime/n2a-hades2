@@ -34,8 +34,8 @@ static const struct { const char *name; unsigned modes; int anchor; float dx, dy
 
 static const struct { const char *en, *zh; } LABEL[HP_NBTN] = {
     [HP_ATTACK] = {"Attack","攻击"}, [HP_SPECIAL] = {"Special","特殊"}, [HP_CAST] = {"Cast","施法"},
-    [HP_DASH] = {"Dash","冲刺"}, [HP_INTERACT] = {"Use","互动"}, [HP_CALL] = {"Call","呼唤"},
-    [HP_LOCK] = {"Lock","锁定"}, [HP_PAUSE] = {"Pause","暂停"}, [HP_INFO] = {"Info","信息"},
+    [HP_DASH] = {"Dash","冲刺"}, [HP_INTERACT] = {"Use","互动"}, [HP_CALL] = {"Auto","自动连击"},
+    [HP_LOCK] = {"Hex","巫咒"}, [HP_PAUSE] = {"Pause","暂停"}, [HP_INFO] = {"Info","信息"},
     [HP_MODE] = {"Menu","菜单"},
     [HP_DPAD_UP] = {"\xE2\x96\xB2","\xE2\x96\xB2"}, [HP_DPAD_DOWN] = {"\xE2\x96\xBC","\xE2\x96\xBC"},
     [HP_DPAD_LEFT] = {"\xE2\x97\x80","\xE2\x97\x80"}, [HP_DPAD_RIGHT] = {"\xE2\x96\xB6","\xE2\x96\xB6"},
