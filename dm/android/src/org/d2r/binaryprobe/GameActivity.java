@@ -180,7 +180,7 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
         fps.setClickable(false);fps.setFocusable(false);
         FrameLayout.LayoutParams fpsParams=new FrameLayout.LayoutParams(-2,-2,Gravity.TOP|Gravity.LEFT);
         fpsParams.topMargin=dp(10);fpsParams.leftMargin=dp(48);viewport.addView(fps,fpsParams);
-        sysInfo=new SystemInfo(this);setSystemInfo(ScreenMode.info(this));
+        sysInfo=new SystemInfo(this);setSystemInfo(ScreenMode.info(this));ScreenMode.applyFade(this);
         status=new TextView(this);status.setTextColor(0xffe9d9ba);status.setTextSize(18);
         status.setGravity(Gravity.CENTER);status.setBackgroundColor(0xe60d0d0f);
         status.setPadding(dp(28),dp(18),dp(28),dp(18));status.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);

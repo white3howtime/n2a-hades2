@@ -9,6 +9,7 @@ import android.view.WindowManager;
 import android.widget.LinearLayout;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
+import android.widget.SeekBar;
 import android.widget.ScrollView;
 import android.widget.Switch;
 import android.widget.TextView;
@@ -41,6 +42,16 @@ final class RendererSettingsDialog {
         Switch fillScreen=option(body,"铺满全屏","开启后游戏按手机屏幕比例原生渲染，不拉伸画面（切换后需重启游戏生效）；关闭则为 16:9 并留黑边。");
         fillScreen.setChecked(ScreenMode.fill(activity));
         fillScreen.setOnCheckedChangeListener((v,on)->{ScreenMode.setFill(activity,on);View vp=activity.findViewById(android.R.id.content);if(vp!=null)relayout(vp);});
+        text(body,"按钮",18);
+        Switch fade=option(body,"按钮自动淡出","无操作一段时间后，屏幕上的所有按钮变淡以免遮挡画面，触摸后恢复。");
+        fade.setChecked(ScreenMode.fade(activity));
+        TextView fadeLabel=text(body,"",14);SeekBar fadeBar=new SeekBar(activity);fadeBar.setMax(9);fadeBar.setProgress(ScreenMode.fadeSecs(activity)-1);
+        body.addView(fadeBar,new LinearLayout.LayoutParams(-1,dp(40)));
+        Runnable applyFade=()->{int s=fadeBar.getProgress()+1;fadeLabel.setText("淡出等待时间："+s+" 秒");fadeBar.setEnabled(fade.isChecked());ScreenMode.setFade(activity,fade.isChecked(),s);};
+        applyFade.run();fade.setOnCheckedChangeListener((v,on)->applyFade.run());
+        fadeBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
+            public void onProgressChanged(SeekBar b,int p,boolean user){applyFade.run();}
+            public void onStartTrackingTouch(SeekBar b){}public void onStopTrackingTouch(SeekBar b){}});
         text(body,"系统信息",18);
         Switch info=option(body,"显示系统信息","在屏幕左上角显示帧率、CPU、GPU 和内存占用。CPU 为本进程占全部核心的比例，另给最忙线程；GPU 是按渲染耗时估算的占用，开启时才会统计。");
         info.setChecked(ScreenMode.info(activity));

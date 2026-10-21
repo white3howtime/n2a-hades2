@@ -46,14 +46,16 @@ public final class HadesPadView extends View {
     private boolean active = true;
     private long lastButtons = -1;
     /** Buttons fade to IDLE_ALPHA this long after the last touch, so they stop hiding game text; any touch brings them back. */
-    private static final long FADE_AFTER_MS = 2000, FADE_MS = 500; private static final float IDLE_ALPHA = .25f;
+    private static final long FADE_MS = 500; private static final float IDLE_ALPHA = .25f; private static volatile long fadeAfterMs = 1000;   // <= 0: never fade private static final float IDLE_ALPHA = .25f;
     private static volatile long lastTouch = android.os.SystemClock.uptimeMillis();
     /** Shared with the gear button so every on-screen control fades together. */
     public static android.view.View follower;   // the gear button: redrawn on every touch so it comes back too
     public static void touched() { lastTouch = android.os.SystemClock.uptimeMillis(); if (follower != null) follower.postInvalidate(); }
+    /** Idle time before the fade starts; <= 0 disables fading. */
+    public static void setFadeAfter(long ms) { fadeAfterMs = ms; touched(); }
     public static long idleMs() { return android.os.SystemClock.uptimeMillis() - lastTouch; }
-    public static float fadeAlpha(long idle) { return idle < FADE_AFTER_MS ? 1f : Math.max(IDLE_ALPHA, 1f - (1f - IDLE_ALPHA) * (idle - FADE_AFTER_MS) / FADE_MS); }
-    public static long nextRedrawMs(long idle) { return idle < FADE_AFTER_MS ? FADE_AFTER_MS - idle : fadeAlpha(idle) > IDLE_ALPHA ? 16 : -1; }
+    public static float fadeAlpha(long idle) { long after = fadeAfterMs; return after <= 0 || idle < after ? 1f : Math.max(IDLE_ALPHA, 1f - (1f - IDLE_ALPHA) * (idle - after) / FADE_MS); }
+    public static long nextRedrawMs(long idle) { long after = fadeAfterMs; if (after <= 0) return -1; return idle < after ? after - idle : fadeAlpha(idle) > IDLE_ALPHA ? 16 : -1; }
     private int lastLx, lastLy, lastRx, lastRy;
 
     public HadesPadView(Context context, BooleanSupplier ready, Sink sink) {
