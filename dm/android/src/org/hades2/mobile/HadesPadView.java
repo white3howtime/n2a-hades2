@@ -141,7 +141,7 @@ public final class HadesPadView extends View {
     /** Switch key printed in the game's own prompts, so a prompt like "R" can be matched to its on-screen button. Default mapping of hades_pad.c. */
     private static String keyName(int btn) {
         switch (btn) {
-            case 0: return "Y"; case 1: return "X"; case 2: return "A"; case 3: return "B"; case 4: return "R";
+            case 0: return "Y"; case 1: return "X"; case 2: return "A"; case 3: return "B"; case 4: return "R"; case 18: return "L";
             case 5: return "ZL"; case 6: return "ZR"; case 7: return "+"; case 13: return "▶";
             default: return null;
         }
@@ -238,8 +238,12 @@ public final class HadesPadView extends View {
                 c.drawLine(x + k * .8f, y, x - k * .8f, y, line); c.drawLine(x - k * .8f, y, x - k * .2f, y - k * .6f, line); c.drawLine(x - k * .8f, y, x - k * .2f, y + k * .6f, line); break;
             case 16: case 17: // option 1/2: one or two dots
                 if (btn == 16) c.drawPoint(x, y, line); else { c.drawPoint(x - k * .4f, y, line); c.drawPoint(x + k * .4f, y, line); } break;
-            case 18: case 19: { // page: double chevron
-                float d = btn == 18 ? -1 : 1;
+            case 18: { // greet (L): smiling face
+                c.drawCircle(x, y, k * 1.0f, line);
+                c.drawPoint(x - k * .35f, y - k * .25f, line); c.drawPoint(x + k * .35f, y - k * .25f, line);
+                c.drawArc(x - k * .55f, y - k * .4f, x + k * .55f, y + k * .55f, 25, 130, false, line); break; }
+            case 19: { // page: double chevron
+                float d = 1;
                 for (int i = 0; i < 2; i++) { float o = (i - .5f) * k * .9f * d; p.moveTo(x + o - d * k * .3f, y - k * .6f); p.lineTo(x + o + d * k * .3f, y); p.lineTo(x + o - d * k * .3f, y + k * .6f); }
                 c.drawPath(p, line); break; }
         }

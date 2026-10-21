@@ -28,7 +28,7 @@ static const struct { const char *name; unsigned modes; int anchor; float dx, dy
     [HP_BACK]      = { "BACK",      0, AN_R,    0,  48, 24, 0 },
     [HP_ALT1]      = { "ALT1",      0, AN_R,    0, -48, 24, 0 },
     [HP_ALT2]      = { "ALT2",      0, AN_R,  -48,   0, 24, 0 },
-    [HP_PAGE_PREV] = { "PAGE_PREV", 0, AN_C,  -44,  28, 18, 0 },
+    [HP_PAGE_PREV] = { "PAGE_PREV", M_PLAY, AN_R,   74,-175, 24, 0 },   /* Greet (L) */
     [HP_PAGE_NEXT] = { "PAGE_NEXT", 0, AN_C,   44,  28, 18, 0 },
 };
 
@@ -41,7 +41,7 @@ static const struct { const char *en, *zh; } LABEL[HP_NBTN] = {
     [HP_DPAD_LEFT] = {"\xE2\x97\x80","\xE2\x97\x80"}, [HP_DPAD_RIGHT] = {"\xE2\x96\xB6","\xE2\x96\xB6"},
     [HP_CONFIRM] = {"OK","确认"}, [HP_BACK] = {"Back","返回"},
     [HP_ALT1] = {"Option 1","功能1"}, [HP_ALT2] = {"Option 2","功能2"},
-    [HP_PAGE_PREV] = {"Prev","上页"}, [HP_PAGE_NEXT] = {"Next","下页"},
+    [HP_PAGE_PREV] = {"Greet","致意"}, [HP_PAGE_NEXT] = {"Next","下页"},
 };
 
 static const float STICK_R_DP = 56.f, STICK_DEAD = .10f, AIM_THR_DP = 10.f, AIM_FULL_DP = 50.f, HIT_SLOP = 1.3f;
