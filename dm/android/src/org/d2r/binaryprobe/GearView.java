@@ -20,12 +20,12 @@ final class GearView extends View {
     @Override protected void onDraw(Canvas c) {
         float dp = getResources().getDisplayMetrics().density;
         float x = getWidth() / 2f, y = getHeight() / 2f, r = Math.min(x, y) - dp * 1.5f;
-        fill.setShader(null); fill.setColor(0x33000000); c.drawCircle(x, y + dp * 1.5f, r + dp, fill);
-        fill.setShader(new android.graphics.LinearGradient(x, y - r, x, y + r, 0x9A3A4452, 0x9A12161C, android.graphics.Shader.TileMode.CLAMP));
+        fill.setShader(null); fill.setColor(0x0F000000); c.drawCircle(x, y + dp * 1.5f, r + dp, fill);
+        fill.setShader(new android.graphics.LinearGradient(x, y - r, x, y + r, 0x243A4452, 0x2412161C, android.graphics.Shader.TileMode.CLAMP));
         c.drawCircle(x, y, r, fill); fill.setShader(null);
-        line.setColor(0x80FFFFFF); line.setStrokeWidth(1.5f * dp); c.drawCircle(x, y, r, line);
+        line.setColor(0x4DFFFFFF); line.setStrokeWidth(1.5f * dp); c.drawCircle(x, y, r, line);
         float k = r * .5f;
-        fill.setColor(0xF2FFFFFF); line.setColor(0xF2FFFFFF); line.setStrokeWidth(k * .42f); line.setStrokeCap(Paint.Cap.BUTT);
+        fill.setColor(0xA6FFFFFF); line.setColor(0xA6FFFFFF); line.setStrokeWidth(k * .42f); line.setStrokeCap(Paint.Cap.BUTT);
         for (int i = 0; i < 8; i++) {   // teeth
             double a = i * Math.PI / 4;
             float cs = (float) Math.cos(a), sn = (float) Math.sin(a);

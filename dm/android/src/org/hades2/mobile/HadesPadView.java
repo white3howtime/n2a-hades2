@@ -109,7 +109,7 @@ public final class HadesPadView extends View {
             int btn = (int) vis[1 + 5 * i]; float cx = vis[2 + 5 * i], cy = vis[3 + 5 * i], r = vis[4 + 5 * i];
             boolean pressed = vis[5 + 5 * i] != 0;
             disc(c, cx, cy, r, pressed, dp);
-            int ink = pressed ? 0xFF10141A : 0xE6FFFFFF;
+            int ink = pressed ? 0xFF10141A : 0xA6FFFFFF;
             line.setColor(ink); fill.setColor(ink); fill.setShader(null);
             icon(c, btn, cx, cy, r, menu);
         }
@@ -123,11 +123,11 @@ public final class HadesPadView extends View {
 
     /** Soft dark glass disc with a thin light rim and a drop shadow; solid light when pressed. */
     private void disc(Canvas c, float cx, float cy, float r, boolean pressed, float dp) {
-        fill.setShader(null); fill.setColor(0x1F000000); c.drawCircle(cx, cy + dp * 1.5f, r + dp, fill);
-        if (pressed) fill.setColor(0xB0FFFFFF);
-        else fill.setShader(new android.graphics.LinearGradient(cx, cy - r, cx, cy + r, 0x4A3A4452, 0x4A12161C, android.graphics.Shader.TileMode.CLAMP));
+        fill.setShader(null); fill.setColor(0x0F000000); c.drawCircle(cx, cy + dp * 1.5f, r + dp, fill);
+        if (pressed) fill.setColor(0xA0FFFFFF);
+        else fill.setShader(new android.graphics.LinearGradient(cx, cy - r, cx, cy + r, 0x243A4452, 0x2412161C, android.graphics.Shader.TileMode.CLAMP));
         c.drawCircle(cx, cy, r, fill); fill.setShader(null);
-        line.setStyle(Paint.Style.STROKE); line.setStrokeWidth(1.5f * dp); line.setColor(pressed ? 0xE6FFFFFF : 0x73FFFFFF); c.drawCircle(cx, cy, r, line);
+        line.setStyle(Paint.Style.STROKE); line.setStrokeWidth(1.5f * dp); line.setColor(pressed ? 0xE6FFFFFF : 0x4DFFFFFF); c.drawCircle(cx, cy, r, line);
     }
 
     /** Vector icons instead of text: keeps the buttons small and language-free. Order matches hp_btn in hades_pad.h. */
