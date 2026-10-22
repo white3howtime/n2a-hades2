@@ -1,5 +1,5 @@
 diff --git a/dm/android/src/org/d2r/binaryprobe/GameActivity.java b/dm/android/src/org/d2r/binaryprobe/GameActivity.java
-index c3bae83..bf16488 100644
+index c3bae83..25dadad 100644
 --- a/dm/android/src/org/d2r/binaryprobe/GameActivity.java
 +++ b/dm/android/src/org/d2r/binaryprobe/GameActivity.java
 @@ -48,6 +48,8 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
@@ -11,9 +11,12 @@ index c3bae83..bf16488 100644
      private static native void nativeControllerCancelActions(long buttons,int lx,int ly,int rx,int ry);
      private static native String nativeSaveFailure();
      private static native String nativeKeyboardRequest();
-@@ -70,7 +72,7 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
+@@ -68,9 +70,9 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
+     private volatile boolean inputReady;
+     private volatile int surfaceGeneration;
      private SurfaceView game;
-     private TextView status,fps;
+-    private TextView status,fps;
++    private TextView status;private InfoView fps;
      private TextView modeControl;
 -    private Button systemControl;
 +    private View systemControl;
@@ -82,14 +85,14 @@ index c3bae83..bf16488 100644
          system.setOnClickListener(v -> {
              if(!configured||failed||rendererSettings!=null||keyboardDialog!=null||saveFailureDialog!=null)return;
              actionButtons=0;if(inputReady)nativeActions(0,0,0,0,0);touchControls.cancel();
-@@ -175,11 +175,12 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
+@@ -174,12 +174,11 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
+                 system,() -> rendererSettings=null);
          });
          viewport.addView(system,systemParams);
-         fps=new TextView(this);fps.setText("FPS —");fps.setTextColor(TouchControlsView.TEXT);
+-        fps=new TextView(this);fps.setText("FPS —");fps.setTextColor(TouchControlsView.TEXT);
 -        fps.setTextSize(12);fps.setTypeface(Typeface.MONOSPACE);fps.setGravity(Gravity.CENTER);
 -        fps.setMinWidth(dp(84));fps.setPadding(dp(8),dp(4),dp(8),dp(4));fps.setBackgroundColor(TouchControlsView.INK);
-+        fps.setTextSize(11);fps.setTypeface(Typeface.MONOSPACE);fps.setGravity(Gravity.START);
-+        fps.setPadding(dp(8),dp(4),dp(8),dp(4));fps.setBackgroundColor(0x99000000);
++        fps=new InfoView(this);fps.setText("FPS\t—");
          fps.setClickable(false);fps.setFocusable(false);
 -        FrameLayout.LayoutParams fpsParams=new FrameLayout.LayoutParams(-2,-2,Gravity.TOP|Gravity.CENTER_HORIZONTAL);
 -        fpsParams.topMargin=dp(10);viewport.addView(fps,fpsParams);
@@ -99,7 +102,7 @@ index c3bae83..bf16488 100644
          status=new TextView(this);status.setTextColor(0xffe9d9ba);status.setTextSize(18);
          status.setGravity(Gravity.CENTER);status.setBackgroundColor(0xe60d0d0f);
          status.setPadding(dp(28),dp(18),dp(28),dp(18));status.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
-@@ -192,7 +193,7 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
+@@ -192,7 +191,7 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
      }
      private String t(String text){return strings.text(text);}
      private void refreshSystemLabel(){
@@ -108,7 +111,7 @@ index c3bae83..bf16488 100644
      }
      private void refreshFrontendStrings(){
          refreshSystemLabel();
-@@ -408,64 +409,40 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
+@@ -408,64 +407,40 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
              if(!temporary.renameTo(target))throw new java.io.IOException(t("不能保存管线缓存"));
          }
      }
@@ -198,7 +201,7 @@ index c3bae83..bf16488 100644
      }
      private boolean installerReceiptCovers(long bytes,String hash){
          try{
-@@ -504,6 +481,12 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
+@@ -504,6 +479,12 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
              // Recover an interrupted main quality-setting write before native reads it.
              try{new RenderQualityStore(this).read();}
              catch(java.io.IOException error){fail(strings.chinese()?"无法读取画质设置":"Could not read graphics quality settings",error);return;}
@@ -211,7 +214,7 @@ index c3bae83..bf16488 100644
              int rc=nativeConfigure(getFilesDir().getAbsolutePath(),getResources().getConfiguration().getLocales().get(0).toLanguageTag(),
              getPackageManager().hasSystemFeature(android.content.pm.PackageManager.FEATURE_TOUCHSCREEN));
              if(rc==0)rc=nativeContentProfile(romfsBytes,addOnIndices);
-@@ -544,19 +527,12 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
+@@ -544,19 +525,12 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
              JSONObject scene=s.optJSONObject("scene");inGame=scene!=null&&scene.optInt("game",0)!=0;
              long frame=s.getLong("presented_frames");
              if(frame>0&&driverPending){driverPending=false;GraphicsDriverSettings.confirmStarted(GameActivity.this);}
@@ -236,7 +239,7 @@ index c3bae83..bf16488 100644
              String request=nativeKeyboardRequest();if(request!=null&&resumed&&!destroyed){JSONObject k=new JSONObject(request);long id=k.getLong("id");
                  if(keyboardDialog==null||keyboardId!=id){closeRendererSettings();if(keyboardDialog!=null)keyboardDialog.dismiss();keyboardId=id;actionButtons=0;nativeActions(0,0,0,0,0);touchControls.cancel();
                      keyboardDialog=ShellTextInputDialog.show(GameActivity.this,k.getString("title"),k.getString("subtitle"),k.getString("hint"),k.getString("initial"),k.getInt("min"),k.getInt("max"),strings,(ok,text)->{nativeKeyboardResult(id,ok,text);keyboardDialog=null;});}}
-@@ -572,7 +548,7 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
+@@ -572,7 +546,7 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
          if(touchControls!=null)touchControls.cancel();
      }}
      @Override public void onResume(){super.onResume();resumed=true;fpsSampler.reset();nativeKeyboardReady(true);nativeUpdateForeground();if(configured)nativeAudioInterruption(false);if(configured)nativeLifecycle(2);configureAndStart();}

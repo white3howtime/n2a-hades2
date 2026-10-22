@@ -70,7 +70,7 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
     private volatile boolean inputReady;
     private volatile int surfaceGeneration;
     private SurfaceView game;
-    private TextView status,fps;
+    private TextView status;private InfoView fps;
     private TextView modeControl;
     private View systemControl;
     private RendererSettingsDialog rendererSettings;
@@ -174,9 +174,7 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
                 system,() -> rendererSettings=null);
         });
         viewport.addView(system,systemParams);
-        fps=new TextView(this);fps.setText("FPS —");fps.setTextColor(TouchControlsView.TEXT);
-        fps.setTextSize(11);fps.setTypeface(Typeface.MONOSPACE);fps.setGravity(Gravity.START);
-        fps.setPadding(dp(8),dp(4),dp(8),dp(4));fps.setBackgroundColor(0x99000000);
+        fps=new InfoView(this);fps.setText("FPS\t—");
         fps.setClickable(false);fps.setFocusable(false);
         FrameLayout.LayoutParams fpsParams=new FrameLayout.LayoutParams(-2,-2,Gravity.TOP|Gravity.LEFT);
         fpsParams.topMargin=dp(10);fpsParams.leftMargin=dp(48);viewport.addView(fps,fpsParams);

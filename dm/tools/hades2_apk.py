@@ -53,7 +53,11 @@ def main():
     if not sources:
         sys.exit("no Java sources")
     run([a.jdk / "bin" / f"javac{exe}", "--release", "8", "-encoding", "UTF-8", "-Xlint:-options", "-cp", android_jar, "-d", classes, *sources], env)
-    run([bt / f"d8{bat}", "--min-api", "29", "--lib", android_jar, "--output", dex, *sorted(classes.rglob("*.class"))], env)
+    # One jar instead of every .class on the command line, which overflows Windows' length limit once there are enough classes.
+    jar = work / "classes.jar"
+    with zipfile.ZipFile(jar, "w", zipfile.ZIP_DEFLATED) as z:
+        for f in sorted(classes.rglob("*.class")): z.write(f, f.relative_to(classes).as_posix())
+    run([bt / f"d8{bat}", "--min-api", "29", "--lib", android_jar, "--output", dex, jar], env)
     base = work / "base.apk"
     manifest, extra = MANIFEST, []
     if a.res and a.res.is_dir():
