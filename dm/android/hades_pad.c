@@ -20,10 +20,10 @@ static const struct { const char *name; unsigned modes; int anchor; float dx, dy
     [HP_PAUSE]     = { "PAUSE",     M_BOTH, AN_T,  -84,  34, 17, 0 },
     [HP_INFO]      = { "INFO",      0, AN_T,  -68,  28, 17, 0 },
     [HP_MODE]      = { "MODE",      M_BOTH, AN_T, -124,  34, 17, 0 },   /* stick <-> D-pad */
-    [HP_DPAD_UP]   = { "DPAD_UP",   M_MENU, AN_L,   10, -52, 24, 0 },
-    [HP_DPAD_DOWN] = { "DPAD_DOWN", M_MENU, AN_L,   10,  52, 24, 0 },
-    [HP_DPAD_LEFT] = { "DPAD_LEFT", M_MENU, AN_L,  -42,   0, 24, 0 },
-    [HP_DPAD_RIGHT]= { "DPAD_RIGHT",M_MENU, AN_L,   62,   0, 24, 0 },
+    [HP_DPAD_UP]   = { "DPAD_UP",   M_MENU, AN_L,   56, -74, 24, 0 },
+    [HP_DPAD_DOWN] = { "DPAD_DOWN", M_MENU, AN_L,   56,  26, 24, 0 },   /* same bottom gap as X; left gap below equals ZR to the right edge */
+    [HP_DPAD_LEFT] = { "DPAD_LEFT", M_MENU, AN_L,    6, -24, 24, 0 },
+    [HP_DPAD_RIGHT]= { "DPAD_RIGHT",M_MENU, AN_L,  106, -24, 24, 0 },
     [HP_CONFIRM]   = { "CONFIRM",   0, AN_R,   48,   0, 24, 0 },
     [HP_BACK]      = { "BACK",      0, AN_R,    0,  48, 24, 0 },
     [HP_ALT1]      = { "ALT1",      0, AN_R,    0, -48, 24, 0 },
@@ -122,7 +122,7 @@ static void center_of(const hp_state *s, int b, float *x, float *y) {
     float u = s->density, ax, ay;
     switch (LAY[b].anchor) {
     case AN_R: ax = s->w - s->inset_r - 160 * u;  ay = s->h - s->inset_b - 84 * u; break;
-    case AN_L: ax = s->inset_l + 80 * u;         ay = s->h - s->inset_b - 84 * u; break;
+    case AN_L: ax = 80 * u;                      ay = s->h - s->inset_b - 84 * u; break;
     case AN_T: ax = s->w - s->inset_r;           ay = 0; break;
     default:   ax = s->w * .5f;                  ay = 0; break;
     }
