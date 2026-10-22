@@ -147,7 +147,7 @@ public final class HadesPadView extends View {
     private static String keyName(int btn) {
         switch (btn) {
             case 0: return "Y"; case 1: return "X"; case 2: return "A"; case 3: return "B"; case 4: return "R"; case 18: return "L";
-            case 5: return "ZL"; case 6: return "ZR"; case 7: return "+"; case 12: return "◀"; case 13: return "▶";
+            case 5: return "ZL"; case 6: return "ZR"; case 7: return "+";
             default: return null;
         }
     }
@@ -206,9 +206,11 @@ public final class HadesPadView extends View {
                 p.moveTo(x - k * .5f, y + k * .5f); p.lineTo(x - k * .6f, y + k * 1.1f); p.lineTo(x + k * .1f, y + k * .5f); p.close();
                 for (int i = -1; i <= 1; i++) p.addCircle(x + i * k * .55f, y - k * .15f, k * .14f, Path.Direction.CCW);
                 c.drawPath(p, fill); break; }
-            case 5: { // auto-attack (ZL): loop arrow
-                c.drawArc(x - k * .85f, y - k * .85f, x + k * .85f, y + k * .85f, 40, 280, false, line);
-                float ex = x + k * .85f * .766f, ey = y - k * .85f * .643f;   // arc end at 320 degrees
+            case 5: { // auto-attack (ZL): a small sword inside a repeat loop
+                c.save(); c.rotate(45, x, y); sword(c, x, y, k * .72f); c.restore();
+                float R = k * 1.3f;
+                c.drawArc(x - R, y - R, x + R, y + R, 40, 280, false, line);
+                float ex = x + R * .766f, ey = y - R * .643f;   // arc end at 320 degrees
                 p.moveTo(ex + .643f * k * .6f, ey + .766f * k * .6f); p.lineTo(ex + .766f * k * .5f, ey - .643f * k * .5f); p.lineTo(ex - .766f * k * .5f, ey + .643f * k * .5f); p.close();
                 c.drawPath(p, fill); break; }
             case 6: { // hex: crescent moon, tilted
@@ -222,22 +224,17 @@ public final class HadesPadView extends View {
                 c.drawRoundRect(x + k * .15f, y - k * .75f, x + k * .6f, y + k * .75f, k * .12f, k * .12f, fill); break;
             case 8: // info: i
                 c.drawPoint(x, y - k * .8f, line); c.drawLine(x, y - k * .2f, x, y + k * .8f, line); break;
-            case 9: // menu: three lines (play triangle when already in the menu)
-                if (menu) { p.moveTo(x - k * .5f, y - k * .8f); p.lineTo(x + k * .8f, y); p.lineTo(x - k * .5f, y + k * .8f); p.close(); c.drawPath(p, line); }
-                else for (int i = -1; i <= 1; i++) c.drawLine(x - k * .8f, y + i * k * .6f, x + k * .8f, y + i * k * .6f, line);
-                break;
+            case 9: // stick <-> D-pad: two horizontal arrows, one each way
+                for (int i = 0; i < 2; i++) {
+                    float d = i == 0 ? 1 : -1, yy = y + (i == 0 ? -.55f : .55f) * k;
+                    c.drawLine(x - d * k * .85f, yy, x + d * k * .85f, yy, line);
+                    p.moveTo(x + d * k * .35f, yy - k * .4f); p.lineTo(x + d * k * .85f, yy); p.lineTo(x + d * k * .35f, yy + k * .4f);
+                }
+                c.drawPath(p, line); break;
             case 10: arrow(c, x, y, k, 0, -1); break;
             case 11: arrow(c, x, y, k, 0, 1); break;
-            case 12: // blessings: a large and a small four-point sparkle
-                sparkle(c, x + k * .15f, y + k * .2f, k * 1.15f); sparkle(c, x - k * .85f, y - k * .65f, k * .5f); break;
-            case 13: { // inventory: drawstring pouch with a crooked mouth
-                p.setFillType(Path.FillType.EVEN_ODD);
-                p.moveTo(x - k * .3f, y - k * .8f); p.lineTo(x + k * .5f, y - k * .75f); p.lineTo(x + k * .5f, y - k * .3f); p.lineTo(x - k * .5f, y - k * .3f); p.close();   // neck, leaning
-                p.addOval(x - k * 1.0f, y - k * .45f, x + k * 1.0f, y + k * 1.15f, Path.Direction.CW);   // belly
-                p.addRoundRect(x - k * .55f, y - k * .28f, x + k * .55f, y - k * .13f, k * .07f, k * .07f, Path.Direction.CCW);   // cord
-                c.drawPath(p, fill);
-                c.save(); c.rotate(-22, x - k * .05f, y - k * .85f);   // the mouth flops to one side
-                c.drawRoundRect(x - k * .75f, y - k * 1.1f, x + k * .55f, y - k * .8f, k * .14f, k * .14f, fill); c.restore(); break; }
+            case 12: arrow(c, x, y, k, -1, 0); break;
+            case 13: arrow(c, x, y, k, 1, 0); break;
             case 14: // confirm: check
                 p.moveTo(x - k * .8f, y); p.lineTo(x - k * .2f, y + k * .6f); p.lineTo(x + k * .9f, y - k * .6f); c.drawPath(p, line); break;
             case 15: // back: left arrow with a tail
@@ -258,14 +255,6 @@ public final class HadesPadView extends View {
                 for (int i = 0; i < 2; i++) { float o = (i - .5f) * k * .9f * d; p.moveTo(x + o - d * k * .3f, y - k * .6f); p.lineTo(x + o + d * k * .3f, y); p.lineTo(x + o - d * k * .3f, y + k * .6f); }
                 c.drawPath(p, line); break; }
         }
-    }
-
-    /** Four-point sparkle with concave sides, radius r, centred on (x, y). */
-    private void sparkle(Canvas c, float x, float y, float r) {
-        Path p = new Path(); float q = r * .14f;
-        p.moveTo(x, y - r); p.quadTo(x + q, y - q, x + r, y); p.quadTo(x + q, y + q, x, y + r);
-        p.quadTo(x - q, y + q, x - r, y); p.quadTo(x - q, y - q, x, y - r); p.close();
-        c.drawPath(p, fill);
     }
 
     /** Upright sword, tip up, centred on (x, y). */

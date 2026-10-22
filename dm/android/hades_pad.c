@@ -7,28 +7,28 @@ enum { ROLE_NONE = 0, ROLE_STICK, ROLE_BTN };
 enum { M_PLAY = 1, M_MENU = 2, M_BOTH = 3 };
 enum { AN_R, AN_L, AN_T, AN_C };   /* right-bottom cluster, left-bottom cluster, top-right corner, top centre */
 
-/* One layer only: the menu-mode controls (D-pad, OK, Back, pages, mode switch) have modes = 0, so they are never shown or hit.
- * Menus use the stick, Cast (A) confirms and Dash (B) goes back. */
+/* Two layouts toggled by MODE: play (left half is a floating stick) and D-pad (four direction buttons instead of the stick).
+ * Controls with modes = 0 are never shown or hit. Menus use Cast (A) to confirm and Dash (B) to go back. */
 static const struct { const char *name; unsigned modes; int anchor; float dx, dy, r; int aim; } LAY[HP_NBTN] = {
-    [HP_ATTACK]    = { "ATTACK",    M_PLAY, AN_R,    0,   0, 38, 1 },
-    [HP_SPECIAL]   = { "SPECIAL",   M_PLAY, AN_R,  -76,  26, 24, 1 },
-    [HP_CAST]      = { "CAST",      M_PLAY, AN_R,  -65, -46, 24, 1 },
-    [HP_DASH]      = { "DASH",      M_PLAY, AN_R,    0, -80, 24, 0 },
-    [HP_INTERACT]  = { "INTERACT",  M_PLAY, AN_R,   74,-108, 24, 0 },
-    [HP_CALL]      = { "CALL",      M_PLAY, AN_R,   74, -41, 24, 0 },
-    [HP_LOCK]      = { "LOCK",      M_PLAY, AN_R,   74,  26, 24, 0 },
-    [HP_PAUSE]     = { "PAUSE",     M_PLAY, AN_T, -164,  34, 17, 0 },
+    [HP_ATTACK]    = { "ATTACK",    M_BOTH, AN_R,    0,   0, 38, 1 },
+    [HP_SPECIAL]   = { "SPECIAL",   M_BOTH, AN_R,  -76,  26, 24, 1 },
+    [HP_CAST]      = { "CAST",      M_BOTH, AN_R,  -65, -46, 24, 1 },
+    [HP_DASH]      = { "DASH",      M_BOTH, AN_R,    0, -80, 24, 0 },
+    [HP_INTERACT]  = { "INTERACT",  M_BOTH, AN_R,   74,-108, 24, 0 },
+    [HP_CALL]      = { "CALL",      M_BOTH, AN_R,   74, -41, 24, 0 },
+    [HP_LOCK]      = { "LOCK",      M_BOTH, AN_R,   74,  26, 24, 0 },
+    [HP_PAUSE]     = { "PAUSE",     M_BOTH, AN_T,  -84,  34, 17, 0 },
     [HP_INFO]      = { "INFO",      0, AN_T,  -68,  28, 17, 0 },
-    [HP_MODE]      = { "MODE",      0, AN_T, -108,  28, 17, 0 },
-    [HP_DPAD_UP]   = { "DPAD_UP",   0, AN_L,    0, -48, 24, 0 },
-    [HP_DPAD_DOWN] = { "DPAD_DOWN", 0, AN_L,    0,  48, 24, 0 },
-    [HP_DPAD_LEFT] = { "DPAD_LEFT", M_PLAY, AN_T, -124,  34, 17, 0 },   /* blessing details */
-    [HP_DPAD_RIGHT]= { "DPAD_RIGHT",M_PLAY, AN_T,  -84,  34, 17, 0 },
+    [HP_MODE]      = { "MODE",      M_BOTH, AN_T, -124,  34, 17, 0 },   /* stick <-> D-pad */
+    [HP_DPAD_UP]   = { "DPAD_UP",   M_MENU, AN_L,   10, -52, 24, 0 },
+    [HP_DPAD_DOWN] = { "DPAD_DOWN", M_MENU, AN_L,   10,  52, 24, 0 },
+    [HP_DPAD_LEFT] = { "DPAD_LEFT", M_MENU, AN_L,  -42,   0, 24, 0 },
+    [HP_DPAD_RIGHT]= { "DPAD_RIGHT",M_MENU, AN_L,   62,   0, 24, 0 },
     [HP_CONFIRM]   = { "CONFIRM",   0, AN_R,   48,   0, 24, 0 },
     [HP_BACK]      = { "BACK",      0, AN_R,    0,  48, 24, 0 },
     [HP_ALT1]      = { "ALT1",      0, AN_R,    0, -48, 24, 0 },
     [HP_ALT2]      = { "ALT2",      0, AN_R,  -48,   0, 24, 0 },
-    [HP_PAGE_PREV] = { "PAGE_PREV", M_PLAY, AN_R,   74,-175, 24, 0 },   /* Greet (L) */
+    [HP_PAGE_PREV] = { "PAGE_PREV", M_BOTH, AN_R,   74,-175, 24, 0 },   /* Greet (L) */
     [HP_PAGE_NEXT] = { "PAGE_NEXT", 0, AN_C,   44,  28, 18, 0 },
 };
 
@@ -175,7 +175,7 @@ void hp_touch(hp_state *s, const int *ids, const float *xs, const float *ys, int
             s->mode = s->mode == HP_MODE_PLAY ? HP_MODE_MENU : HP_MODE_PLAY;
             for (int i = 0; i < s->np; i++) s->p[i].role = ROLE_NONE;   /* nothing may stay pressed across the switch */
         } else if (hb >= 0) { role = ROLE_BTN; btn = hb; }
-        else if (x < s->w * .5f && y > s->h * .18f) {
+        else if (s->mode == HP_MODE_PLAY && x < s->w * .5f && y > s->h * .18f) {
             int have = 0; for (int i = 0; i < s->np; i++) if (s->p[i].role == ROLE_STICK) have = 1;
             if (!have) { s->sbx = x; s->sby = y; role = ROLE_STICK; }   /* base = touch-down point, so no jump at contact */
         }
