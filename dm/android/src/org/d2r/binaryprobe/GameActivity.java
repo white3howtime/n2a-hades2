@@ -483,7 +483,7 @@ public final class GameActivity extends Activity implements SurfaceHolder.Callba
                 android.graphics.Rect r=getWindowManager().getMaximumWindowMetrics().getBounds();
                 int w=Math.max(r.width(),r.height()),h=Math.min(r.width(),r.height());
                 ScreenMode.active=ScreenMode.fill(this);
-                if(ScreenMode.active)android.system.Os.setenv("HADES_SCREEN",w+" "+h,true);else android.system.Os.unsetenv("HADES_SCREEN");
+                if(ScreenMode.active){android.system.Os.setenv("HADES_SCREEN",w+" "+h,true);android.system.Os.setenv("HADES_SCALE",String.valueOf(ScreenMode.scale(this)),true);}else android.system.Os.unsetenv("HADES_SCREEN");
             }catch(Exception ignored){}
             int rc=nativeConfigure(getFilesDir().getAbsolutePath(),getResources().getConfiguration().getLocales().get(0).toLanguageTag(),
             getPackageManager().hasSystemFeature(android.content.pm.PackageManager.FEATURE_TOUCHSCREEN));

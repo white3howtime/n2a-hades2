@@ -91,15 +91,19 @@ void hades_apply_screen(void) {
     hades_overlay(nw);
     long pg = sysconf(_SC_PAGESIZE); uintptr_t a = (uintptr_t)ins & ~(uintptr_t)(pg - 1);
     if (mprotect((void *)a, pg, PROT_READ | PROT_WRITE | PROT_EXEC)) { LOG("HADES_SCREEN: mprotect failed"); return; }
-    ins[0] = 0xD2800008u + ((uint32_t)nw << 5);
+    const char *sc = getenv("HADES_SCALE"); int pct = sc ? atoi(sc) : 100;
+    if (pct < 50 || pct > 200) pct = 100;
+    int rw = (int)(nw * pct / 100.0 + 0.5) & ~1, rh = (int)(720 * pct / 100.0 + 0.5) & ~1;
+    ins[0] = 0xD2800008u + ((uint32_t)rw << 5);
+    ins[1] = 0xF2C00008u + ((uint32_t)rh << 5);
     __builtin___clear_cache((char *)ins, (char *)(ins + 2));
     mprotect((void *)a, pg, PROT_READ | PROT_EXEC);
     /* The engine's own "screen size" (config X/Y source) must agree with the window size, or passes that use it stop at 1280. */
     static const int32_t want[4] = {1280, 720, 1920, 1080};
     int32_t *tab = (int32_t *)(m->base + 0x6d337c), *pair = (int32_t *)(m->base + 0x71a8b0);
-    if (!memcmp(tab, want, sizeof want) && !mprotect((void *)((uintptr_t)tab & ~(uintptr_t)(pg - 1)), pg * 2, PROT_READ | PROT_WRITE)) tab[0] = nw;
-    if (pair[0] == 1280 && pair[1] == 720) pair[0] = nw;
-    LOG("HADES_SCREEN: render size %dx720 (screen %dx%d)", nw, w, h);
+    if (!memcmp(tab, want, sizeof want) && !mprotect((void *)((uintptr_t)tab & ~(uintptr_t)(pg - 1)), pg * 2, PROT_READ | PROT_WRITE)) { tab[0] = rw; tab[1] = rh; }
+    if (pair[0] == 1280 && pair[1] == 720) { pair[0] = rw; pair[1] = rh; }
+    LOG("HADES_SCREEN: render size %dx%d (layout %dx720, scale %d%%, screen %dx%d)", rw, rh, nw, pct, w, h);
 }
 
 /* ---------- nn::ro: only the EOSSDK NRO uses it, and EOS is cut; registration of game.nrr must not reach ldr:ro ---------- */

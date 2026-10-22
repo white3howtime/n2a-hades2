@@ -19,6 +19,8 @@ final class ScreenMode {
     static void applyFade(Context c){org.hades2.mobile.HadesPadView.setFade(fadeMode(c),fadeSecs(c)*1000L);}
     static void setInfo(Context c,boolean on){c.getSharedPreferences(PREFS,Context.MODE_PRIVATE).edit().putBoolean("info",on).apply();}
     /** true: stretch to the whole screen (default; the picture is widened on 19.5:9-type panels). false: keep 16:9 with black bars. */
+    static int scale(Context c){return c.getSharedPreferences(PREFS,Context.MODE_PRIVATE).getInt("scale",100);}
+    static void setScale(Context c,int pct){c.getSharedPreferences(PREFS,Context.MODE_PRIVATE).edit().putInt("scale",pct).apply();}
     static boolean fill(Context c){return c.getSharedPreferences(PREFS,Context.MODE_PRIVATE).getBoolean(KEY,true);}
     static void setFill(Context c,boolean fill){
         SharedPreferences.Editor e=c.getSharedPreferences(PREFS,Context.MODE_PRIVATE).edit();e.putBoolean(KEY,fill).apply();
