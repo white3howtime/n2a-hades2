@@ -60,6 +60,7 @@ final class RendererSettingsDialog {
         Switch info=option(body,"显示系统信息","在屏幕左上角显示帧率、CPU、GPU 和内存占用。CPU 为本进程占全部核心的比例，另给最忙线程；GPU 是按渲染耗时估算的占用，开启时才会统计。");
         info.setChecked(ScreenMode.info(activity));
         info.setOnCheckedChangeListener((v,on)->((GameActivity)activity).setSystemInfo(on));
+        int qualityFrom=body.getChildCount();
         text(body,"画质模式",18);
         RadioGroup quality=new RadioGroup(activity);quality.setOrientation(LinearLayout.VERTICAL);body.addView(quality);
         automatic=qualityOption(quality,RenderQuality.description(RenderQuality.AUTO));
@@ -68,6 +69,8 @@ final class RendererSettingsDialog {
         performance=qualityOption(quality,RenderQuality.description(RenderQuality.PERFORMANCE));
         text(body,"自动模式在掉帧时动态降低 3D 分辨率；原画质固定 100%；均衡固定 90%；性能固定 75%。界面和文字保持当前输出分辨率。选择后自动保存并应用，切换时可能短暂停顿。",14);
         qualityStatus=text(body,"正在读取画质设置…",14);qualityStatus.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
+        // Hidden until render scaling works in Hades II: the inherited D2R scale3d profile does not match this game (scale3d.supported is 0), so these modes do nothing.
+        for(int i=qualityFrom;i<body.getChildCount();i++)body.getChildAt(i).setVisibility(View.GONE);
         text(body,"图形优化",18);
         clear=option(body,"清屏合并","将符合条件的整屏清除并入绘制，减少独立清除和显存读取。关闭后恢复原清除路径。");
         writeback=option(body,"省略无用写回","确认内容在读取前会被完整覆盖时，省掉这次显存保存。需要保留的内容仍正常保存。");
